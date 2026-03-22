@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hornero_event_classifier"
+version = "0.1.0"
+description = "Event processing and grading utilities."
+requires-python = ">=3.11"
+dependencies = [
+    "sortedcontainers>=2.4.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# include = ["eventer*"]
