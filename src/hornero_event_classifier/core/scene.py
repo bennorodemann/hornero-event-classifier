@@ -1,12 +1,13 @@
 import csv
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Self
+from typing import Self, Iterable, Optional
 import pandas as pd
 
 from hornero_event_classifier.classifiers import Classifier, SegmentCollection
 from hornero_event_classifier.core.data import BBox, Frame, Item
 from hornero_event_classifier.core.enums import ItemType, Subject
+from hornero_event_classifier.core.filters import FilterFunc, boundary_filter
 from hornero_event_classifier.core.utils import (
     DefaultSpawnDict,
     FrameIndexer,
@@ -64,19 +65,32 @@ class Scene:
     def video_id(self) -> str:
         return self.filename.rsplit("_", 1)[0]
 
-    def remove_low_conf(self, threshold: float) -> Self:
-        for item in self.items.get(ItemType.BIRD):
+    def remove_low_conf(self, threshold: float, *item_types: ItemType) -> Self:
+        for item in self.items.get(*item_types):
             conf = [box.conf for box in item.boxes.get_all()]
             if sum(conf) / len(conf) < threshold:
                 item.ignore = True
 
         return self
 
-    def split_items(self, split_threshold: int) -> Self:
-        for item in list(self.items.get()):
+    def _combine_filters(self, funcs: tuple[FilterFunc, ...]) -> FilterFunc:
+        def combo_filter(box1: BBox, box2: BBox) -> bool:
+            return all(func(box1, box2) for func in funcs)
+
+        return combo_filter
+
+    def split_items(self, filter_func: FilterFunc | Iterable[FilterFunc], *item_types: ItemType) -> Self:
+        if isinstance(filter_func, Iterable):
+            original = filter_func
+            filter_func = self._combine_filters(tuple(filter_func))
+        else:
+            original = (filter_func,)
+        for item in list(self.items.get(*item_types)):
             cut_frames: list[int] = []
             for prev_box, next_box in compare_seq(item.boxes):
-                if (next_box.frame - prev_box.frame) >= split_threshold:
+                if filter_func(prev_box, next_box):
+                    if boundary_filter in original:
+                        pass
                     cut_frames.append(next_box.frame)
             for cut_frame in cut_frames:
                 item = item.cut_at(cut_frame)
@@ -84,15 +98,13 @@ class Scene:
                 self.items.add(item)
         return self
 
-    def fill_gaps(self, exclude_frame_touch: bool = True) -> Self:
-        ref_frame = self.frames[self.frames.start]
-        frame_w = ref_frame.width
-        frame_h = ref_frame.height
-        for item in self.items.get():
+    def fill_gaps(self, filter_func: Optional[FilterFunc | Iterable[FilterFunc]] = None, *item_types: ItemType) -> Self:
+        filter_func = filter_func or ()
+        if isinstance(filter_func, Iterable):
+            filter_func = self._combine_filters(tuple(filter_func))
+        for item in self.items.get(*item_types):
             for prev_box, next_box in item.get_gaps(1):
-                if exclude_frame_touch and (
-                    prev_box.touching_boundary(frame_w, frame_h, 5) or next_box.touching_boundary(frame_w, frame_h, 5)
-                ):
+                if not filter_func(prev_box, next_box):
                     continue
                 span: int = next_box.frame - prev_box.frame
                 assert prev_box.frame < next_box.frame
@@ -104,6 +116,7 @@ class Scene:
                     xmax = prev_box.xmax - ((prev_box.xmax - next_box.xmax) * pos)
                     ymin = prev_box.ymin - ((prev_box.ymin - next_box.ymin) * pos)
                     ymax = prev_box.ymax - ((prev_box.ymax - next_box.ymax) * pos)
+                    conf = prev_box.conf - ((prev_box.conf - next_box.conf) * pos)
                     if not self.frames.has(frame):
                         self.frames[frame] = Frame(frame)
                     frame_obj = self.frames[frame]
@@ -114,11 +127,12 @@ class Scene:
                         xmax=xmax,
                         ymin=ymin,
                         ymax=ymax,
-                        conf=0,
+                        conf=conf,
                         real=False,
                     )
         return self
 
+    # TODO: implement filters (technically deprecated)
     def merge_birds(self, overlap: float, correlation: float, exists_only: bool = False) -> Self:
         birds: list[Item] = sorted(self.items.get(ItemType.BIRD), key=lambda i: i.start)
         overlaps: dict[Item, set[Item]] = {}
@@ -164,56 +178,58 @@ class Scene:
                 child.ignore = True
         return self
 
-    def remove_minor_items(self, size: int) -> Self:
-        for item in list(self.items.get(ItemType.BIRD)):
+    def remove_minor_items(self, size: int, *item_types: ItemType) -> Self:
+        for item in list(self.items.get(*item_types)):
             if len(item.boxes) <= size:
-                item.destroy()
-                self.items.remove(item)
+                # print(f"destroying: {item}")
+                item.ignore = True
+                # item.destroy()
+                # self.items.remove(item)
         return self
 
-    def split_at_boundary(self, buffer: int = 0) -> Self:
-        cuts = {frame for item in self.items.get(ItemType.BIRD) for frame in (item.start, item.end + 1)}
-        for frame in cuts:
-            frame_obj = self.frames.get(frame, None)
-            if frame_obj is not None:
-                for bird in frame_obj.birds:
-                    if bird.item_obj.start + buffer < frame < bird.item_obj.end - buffer:
-                        new = bird.item_obj.cut_at(frame)
-                        self.items.add(new)
-        return self
+    # def split_at_boundary(self, buffer: int = 0) -> Self:
+    #     cuts = {frame for item in self.items.get(ItemType.BIRD) for frame in (item.start, item.end + 1)}
+    #     for frame in cuts:
+    #         frame_obj = self.frames.get(frame, None)
+    #         if frame_obj is not None:
+    #             for bird in frame_obj.birds:
+    #                 if bird.item_obj.start + buffer < frame < bird.item_obj.end - buffer:
+    #                     new = bird.item_obj.cut_at(frame)
+    #                     self.items.add(new)
+    #     return self
 
-    def split_at_frame_touch(self, buffer: int = 0, max_touch_time: int = 30, merge: int = 30) -> Self:
-        ref_frame = self.frames[self.frames.start]
-        frame_w = ref_frame.width - 5
-        frame_h = ref_frame.height - 5
-        for bird in [b for b in self.items.get(ItemType.BIRD)]:
-            if (bird.end - bird.start + 1) <= buffer * 2:
-                continue
-            cuts: list[int] = []
-            boxes = [box for box in bird.boxes.get_all() if bird.start + buffer < box.frame < bird.end - buffer]
-            length_counter: int = 0
-            merge_counter: int = merge
-            for box in boxes:
-                touching = ((box.xmin < 5 or box.xmax > frame_w) and box.width < frame_w / 2) or (
-                    (box.ymin < 5 or box.ymax > frame_h) and box.height < frame_h / 2
-                )
-                if touching:
-                    length_counter += 1
-                    merge_counter = merge
-                elif length_counter > 0:
-                    merge_counter -= 1
-                    if merge_counter == 0:
-                        if length_counter <= max_touch_time:
-                            cuts.append(box.frame)
-                        length_counter = 0
-                        merge_counter = merge
-            for frame in sorted(cuts, reverse=True):
-                new = bird.cut_at(frame)
-                self.items.add(new)
-        return self
+    # def split_at_frame_touch(self, buffer: int = 0, max_touch_time: int = 30, merge: int = 30) -> Self:
+    #     ref_frame = self.frames[self.frames.start]
+    #     frame_w = ref_frame.width - 5
+    #     frame_h = ref_frame.height - 5
+    #     for bird in [b for b in self.items.get(ItemType.BIRD)]:
+    #         if (bird.end - bird.start + 1) <= buffer * 2:
+    #             continue
+    #         cuts: list[int] = []
+    #         boxes = [box for box in bird.boxes.get_all() if bird.start + buffer < box.frame < bird.end - buffer]
+    #         length_counter: int = 0
+    #         merge_counter: int = merge
+    #         for box in boxes:
+    #             touching = ((box.xmin < 5 or box.xmax > frame_w) and box.width < frame_w / 2) or (
+    #                 (box.ymin < 5 or box.ymax > frame_h) and box.height < frame_h / 2
+    #             )
+    #             if touching:
+    #                 length_counter += 1
+    #                 merge_counter = merge
+    #             elif length_counter > 0:
+    #                 merge_counter -= 1
+    #                 if merge_counter == 0:
+    #                     if length_counter <= max_touch_time:
+    #                         cuts.append(box.frame)
+    #                     length_counter = 0
+    #                     merge_counter = merge
+    #         for frame in sorted(cuts, reverse=True):
+    #             new = bird.cut_at(frame)
+    #             self.items.add(new)
+    #     return self
 
-    def classify(self, classifier: Classifier) -> Self:
-        data = SegmentCollection(self.items.get(ItemType.BIRD), classifier.metrics)
+    def classify(self, classifier: Classifier, segment_length: Optional[int] = None) -> Self:
+        data = SegmentCollection(self.items.get(ItemType.BIRD), classifier.metrics, segment_length=segment_length)
         classifier.train(data)
         results = classifier.classify(data)
         for item, segments in results.items():
@@ -244,13 +260,13 @@ class Scene:
         for id_, event_data in enumerate(cache, 1):
             event = Item.spawn_event(id_=id_, source=event_data)
             new_events.append(event)
-        for event in new_events.copy():
-            if event.track_len > micro_events:
-                continue
-            for other_event in [e for e in new_events if e is not event and not e.ignore]:
-                if event is not other_event and event.start > other_event.start - buffer and event.end < other_event.end + buffer:
-                    event.subject = other_event.subject
-                    new_events.append(Item.combine([event, other_event]))
+        # for event in new_events.copy():
+        #     if event.track_len > micro_events:
+        #         continue
+        #     for other_event in [e for e in new_events if e is not event and not e.ignore]:
+        #         if event is not other_event and event.start > other_event.start - buffer and event.end < other_event.end + buffer:
+        #             event.subject = other_event.subject
+        #             new_events.append(Item.combine([event, other_event]))
         for event in new_events:
             self.items.add(event)
         return self
@@ -272,7 +288,7 @@ class Scene:
 
     def write_to_csv(self, filename: str = "", allow_no_subject: bool = False) -> Self:
         results = self.get_results(not allow_no_subject)
-        results.to_csv(filename)
+        results.to_csv(filename, index=False)
         results.groupby()
         # with open(f"databases/pYOLOv3/{self.video_id}_events.csv", "w", encoding="utf-8") as file:
         #     writer = csv.DictWriter(file, ("video_id", "subject", "start", "end", "mud"))

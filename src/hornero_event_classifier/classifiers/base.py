@@ -13,6 +13,7 @@ from typing import (
     Self,
     Sequence,
 )
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -51,8 +52,16 @@ class ItemSegment:
                 args.append([box.metrics_cache[arg] for box in self.boxes])
             data.append(metric_func_registry.get(metric)(self.boxes, *args))
         self.seg_data: NDArray[np.float64] = np.array(list(zip(*data)), np.float64)
+        # self.seg_data = np.nan_to_num(self.seg_data)
+        # self.data_summary = np.mean(self.seg_data, axis=0)
+        self.seg_data = np.where(np.all(np.isnan(self.seg_data), axis=0), 0, self.seg_data)
         self.data_summary: NDArray[np.float64] = np.nanmean(self.seg_data, axis=0)
-        self.data_summary = np.nan_to_num(self.data_summary)
+
+        # self.data_summary = np.where(np.all(np.isnan(self.seg_data), axis=0), 0, np.nanmean(self.seg_data, axis=0))
+        # with warnings.catch_warnings():
+        #     warnings.filterwarnings("ignore", category=RuntimeWarning)
+        # self.data_summary: NDArray[np.float64] = np.nanmean(self.seg_data, axis=0)
+        # self.data_summary = np.nan_to_num(self.data_summary)
 
     def __len__(self):
         return len(self.boxes)

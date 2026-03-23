@@ -13,6 +13,7 @@ from typing import (
 
 import hornero_event_classifier.classifiers.pre_calc as req
 import numpy as np
+from numpy.typing import NDArray
 from hornero_event_classifier.core import ItemType
 
 if TYPE_CHECKING:
@@ -21,6 +22,8 @@ if TYPE_CHECKING:
 
 class Metric(Flag):
     RING_PRESENCE = auto()
+    CENTER_RING_PRESENCE = auto()
+    PER_OWNERSHIP = auto()
     RING_COUNT = auto()
     AVG_RING_CONF = auto()
     AVG_RING_REAL = auto()
@@ -83,12 +86,29 @@ class MetricRegistry(Generic[O]):
         return out
 
 
-metric_func_registry: MetricRegistry[list[float] | list[np.floating]] = MetricRegistry()
+metric_func_registry: MetricRegistry[list[float] | list[np.floating] | NDArray[np.floating]] = MetricRegistry()
 
 
 @metric_func_registry.register(Metric.RING_PRESENCE, (req.local_ring_counts,))
-def get_ring_presence(_: list[BBox], has_rings: list[bool]) -> list[float]:
+def get_ring_presence(_: list[BBox], has_rings: list[int]) -> list[float]:
     return [float(v > 0) for v in has_rings]
+
+
+@metric_func_registry.register(Metric.CENTER_RING_PRESENCE, (req.local_ring_counts,))
+def get_center_ring_presence(_: list[BBox], has_rings: list[int]) -> NDArray[np.floating]:
+    out: NDArray[np.float64] = np.array([float(v > 0) for v in has_rings], np.float64)
+    q_len = int(len(out) / 4)
+    out[:q_len] = np.nan
+    out[-q_len:] = np.nan
+    return out
+
+
+@metric_func_registry.register(Metric.PER_OWNERSHIP, (req.local_ring_counts, req.global_rings))
+def get_per_ownership(_: list[BBox], local_ring_counts: list[int], global_ring_counts: list[tuple[BBox]]) -> list[float]:
+    # local: NDArray[np.float64] = np.array(local_ring_counts, np.float64)
+    # global_: NDArray[np.float64] = np.array(global_ring_counts, np.float64)
+    # return local/global_
+    return [loc / len(glob) if glob else float("nan") for loc, glob in zip(local_ring_counts, global_ring_counts)]
 
 
 @metric_func_registry.register(Metric.RING_COUNT, (req.local_ring_counts))
@@ -140,19 +160,19 @@ def get_avg_plastic(_: list[BBox], all_rings: list[tuple[BBox, ...]]) -> list[fl
 
 @metric_func_registry.register(Metric.RAD_STD, req.local_ring_rotations)
 def get_rad_std(_: list[BBox], all_rotations: list[tuple[float, ...]]) -> list[np.floating]:
-    val = np.std([r for frame in all_rotations for r in frame])
+    val = np.std([r for frame in all_rotations for r in frame] or [np.nan])
     return [val for _ in range(len(all_rotations))]
 
 
 @metric_func_registry.register(Metric.X_STD, req.local_ring_x_pos)
 def get_x_std(_: list[BBox], all_rotations: list[tuple[float, ...]]) -> list[np.floating]:
-    val = np.std([r for frame in all_rotations for r in frame])
+    val = np.std([r for frame in all_rotations for r in frame] or [np.nan])
     return [val for _ in range(len(all_rotations))]
 
 
 @metric_func_registry.register(Metric.GLOBAL_X_STD, req.local_ring_global_x_pos)
 def get_global_x_std(_: list[BBox], all_rotations: list[tuple[float, ...]]) -> list[np.floating]:
-    val = np.std([r for frame in all_rotations for r in frame])
+    val = np.std([r for frame in all_rotations for r in frame] or [np.nan])
     return [val for _ in range(len(all_rotations))]
 
 

@@ -7,6 +7,7 @@ from typing import Any, Callable
 
 import cv2
 from hornero_event_classifier import ItemType, Scene, SegmentCollection, Metric, ThresholdClassifier
+import hornero_event_classifier.core.filters as filters
 from PIL import Image, ImageTk
 from hornero_event_classifier.tools.eventval import run_all
 
@@ -17,7 +18,12 @@ weights = [1 / len(metrics) for _ in metrics]
 classifier = ThresholdClassifier(tuple(Metric), weights)
 print("loading scenes...")
 scenes = [
-    Scene.from_csv(db / vid).remove_low_conf(0.7).split_items(100).fill_gaps(True).split_items(2).split_at_boundary(100)
+    Scene.from_csv(db / vid)
+    .split_items(filters.make_gap_filter(100), ItemType.BIRD)
+    .fill_gaps(filters.invert_filter(filters.frame_touch_filter), ItemType.BIRD)
+    .split_items(filters.make_gap_filter(2), ItemType.BIRD)
+    .split_items((filters.make_buffer_filter(100), filters.boundary_filter), ItemType.BIRD)
+    .remove_low_conf(0.7, ItemType.BIRD)
     for vid in files
 ]
 print("loading blocks...")

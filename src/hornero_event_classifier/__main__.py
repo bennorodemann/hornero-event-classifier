@@ -108,16 +108,16 @@ print(f"timer: {time()-t0}")
 # # a.clipped = True
 # a.display_frames()
 # # run(s.video_id, target_dir="pYOLOv3")
-# run_all(target_dir="pYOLOv3", overlap_threshold=0.9)
+run_all(target_dir="pYOLOv3", overlap_threshold=0.9)
 
-# result = subprocess.run(
-#     ["Rscript", "--vanilla", "analysis/R/event_validation_visual.R", "databases/pYOLOv3_validation"],
-#     capture_output=True,
-#     text=True,
-#     check=True,
-# )
-# img = Image.open(result.stdout)
-# fig, ax = plt.subplots(figsize=(19, 10))
-# ax.imshow(img)
-# ax.axis("off")
-# plt.show()
+result = subprocess.run(
+    ["Rscript", "--vanilla", "analysis/R/event_validation_visual.R", "databases/pYOLOv3_validation"],
+    capture_output=True,
+    text=True,
+    check=True,
+)
+img = Image.open(result.stdout)
+fig, ax = plt.subplots(figsize=(19, 10))
+ax.imshow(img)
+ax.axis("off")
+plt.show()

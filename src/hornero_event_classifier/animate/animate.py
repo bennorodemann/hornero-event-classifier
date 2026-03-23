@@ -4,7 +4,7 @@ import math
 import time
 from threading import Event, Thread
 from typing import Callable, Optional, SupportsInt
-
+from pathlib import Path
 import cv2
 import hornero_event_classifier.classifiers.pre_calc as ref
 import numpy as np
@@ -206,7 +206,7 @@ class Renderer:
         for old in frame.orphans:
             self._animate_bbox(old, img, (0, 0, 255), show_id=False)
         for bird in frame.birds:
-            self._animate_bbox(bird, img, (0, 255, 0), True)
+            self._animate_bbox(bird, img, (0, 255, 0 if bird.real else 255), True)
             if self.global_point:
                 cv2.line(img, (int(bird.x), int(bird.y)), self.global_point, (0, 255, 0))
                 cv2.putText(
@@ -243,7 +243,7 @@ class Renderer:
             self._animate_bbox(ring, img, color, show_id=False)
         for event in frame.events:
             self._animate_bbox(event, img, (0, 0, 0), show_id=False)
-            text = "r" if event.item_obj.subject else "n"
+            text = event.item_obj.subject.value
             text = f"{event.item_obj.id}.{event.item_obj.sub_id}: {text}"
             text_color = (255, 255, 255)
             (text_width, text_height), text_base = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
@@ -342,7 +342,7 @@ class Animation:
         out_video: Optional[str] = None,
         mask: Optional[NDArray] = None,
         scale: float = 1.0,
-        source: str = "~/Videos/videos_BORIS",
+        source: str | Path = Path.home() / "Videos/videos_BORIS",
     ):
         self.open: bool = True
         self.mask = mask
