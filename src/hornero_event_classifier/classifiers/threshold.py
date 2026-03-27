@@ -1,4 +1,4 @@
-from typing import Iterable, Sequence
+from typing import Iterable, Sequence, Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -20,6 +20,11 @@ class ThresholdClassifier(Classifier):
         self.weights: list[float] = list(weights)
         self.threshold: float = threshold
         super().__init__(metrics)
+
+    @classmethod
+    def from_dict(cls, metric_weights: dict[Metric, float], threshold: float = 0.5) -> Self:
+        metrics, weights = zip(*metric_weights)
+        return cls(metrics, weights, threshold)
 
     def classify_matrix(self, matrix: NDArray[np.floating]) -> NDArray[np.bool]:
         return (matrix * self.weights).sum(axis=1) > self.threshold

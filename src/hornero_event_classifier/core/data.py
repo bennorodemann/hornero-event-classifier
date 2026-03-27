@@ -297,7 +297,8 @@ class Item:
 @dataclass
 class Frame:
     frame: int
-    frame_shape: tuple[int, int] = (1080, 1920)
+    _scene: Scene
+    # frame_shape: tuple[int, int] = (1080, 1920)
     bboxes: ItemTypedCollection = field(default_factory=ItemTypedCollection, init=False)
 
     def __lt__(self, other: Frame):
@@ -316,12 +317,16 @@ class Frame:
         return self.frame == other.frame
 
     @property
+    def frame_shape(self) -> tuple[int, int]:
+        return self._scene.frame_shape
+
+    @property
     def width(self) -> int:
-        return self.frame_shape[1]
+        return self._scene.frame_shape[1]
 
     @property
     def height(self) -> int:
-        return self.frame_shape[0]
+        return self._scene.frame_shape[0]
 
     @property
     def birds(self) -> Generator[BBox]:

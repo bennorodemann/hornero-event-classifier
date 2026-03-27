@@ -121,8 +121,6 @@ img_widget.pack(fill=tk.BOTH, side=tk.LEFT, expand=True)
 controls = tk.Frame(window, bd=3)
 control_widgets = []
 for row, (metric, metric_var) in enumerate(zip(metrics, metric_vars)):
-    if metric.name is None:
-        continue
     label = tk.Label(controls, text=metric.name)
     slider = tk.Scale(controls, variable=metric_var, orient=tk.HORIZONTAL, to=10)
     label.grid(row=row, column=0)

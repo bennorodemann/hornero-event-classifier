@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from PIL import Image
 from validation_tools.eventval import run, run_all
 
-from hornero_event_classifier import Animation, ItemType, Metric, Scene, ThresholdClassifier
+from hornero_event_classifier import Animator, ItemType, Metric, Scene, ThresholdClassifier
 
 db = Path("databases/YOLOexp2")
 files = listdir(db)

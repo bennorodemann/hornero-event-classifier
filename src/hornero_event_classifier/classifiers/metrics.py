@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 
 
 class Metric(Flag):
+    name: str
     RING_PRESENCE = auto()
     CENTER_RING_PRESENCE = auto()
     PER_OWNERSHIP = auto()
     RING_COUNT = auto()
     AVG_RING_CONF = auto()
     AVG_RING_REAL = auto()
-    AVG_RING_SCORE = auto()
     AVG_X_SCORE = auto()
     AVG_Y_SCORE = auto()
     AVG_RAD_SCORE = auto()
@@ -35,6 +35,9 @@ class Metric(Flag):
     X_STD = auto()
     RAD_STD = auto()
     GLOBAL_X_STD = auto()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}.{self._name_}"
 
 
 ring_presence = 0
@@ -104,11 +107,8 @@ def get_center_ring_presence(_: list[BBox], has_rings: list[int]) -> NDArray[np.
 
 
 @metric_func_registry.register(Metric.PER_OWNERSHIP, (req.local_ring_counts, req.global_rings))
-def get_per_ownership(_: list[BBox], local_ring_counts: list[int], global_ring_counts: list[tuple[BBox]]) -> list[float]:
-    # local: NDArray[np.float64] = np.array(local_ring_counts, np.float64)
-    # global_: NDArray[np.float64] = np.array(global_ring_counts, np.float64)
-    # return local/global_
-    return [loc / len(glob) if glob else float("nan") for loc, glob in zip(local_ring_counts, global_ring_counts)]
+def get_per_ownership(_: list[BBox], local_ring_counts: list[int], global_rings: list[tuple[BBox]]) -> list[float]:
+    return [loc / len(glob) if glob else float("nan") for loc, glob in zip(local_ring_counts, global_rings)]
 
 
 @metric_func_registry.register(Metric.RING_COUNT, (req.local_ring_counts))
@@ -124,11 +124,6 @@ def get_avg_ring_conf(_: list[BBox], all_rings: list[tuple[BBox, ...]]) -> list[
 @metric_func_registry.register(Metric.AVG_RING_REAL, req.local_rings)
 def get_avg_ring_real(_: list[BBox], all_rings: list[tuple[BBox, ...]]) -> list[float]:
     return [sum(ring.real for ring in rings) / len(rings) if rings else float("nan") for rings in all_rings]
-
-
-@metric_func_registry.register(Metric.AVG_RING_SCORE, req.local_ring_scores)
-def get_avg_ring_score(_: list[BBox], all_scores: list[tuple[float, ...]]) -> list[float]:
-    return [sum(ring_scores) / len(ring_scores) if ring_scores else float("nan") for ring_scores in all_scores]
 
 
 @metric_func_registry.register(Metric.AVG_X_SCORE, req.local_x_score)

@@ -6,7 +6,10 @@ from hornero_event_classifier.classifiers import (
     Metric,
     ThresholdClassifier,
 )
-from hornero_event_classifier.animate.animate import Animation
+from hornero_event_classifier.animate.animate import Animator
+from hornero_event_classifier import pipelines
+from hornero_event_classifier import tools
+from hornero_event_classifier import config
 
 __all__ = [
     "Scene",
@@ -19,5 +22,8 @@ __all__ = [
     "BBox",
     "Frame",
     "Item",
-    "Animation",
+    "Animator",
+    "pipelines",
+    "tools",
+    "config",
 ]

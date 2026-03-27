@@ -1,9 +1,5 @@
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Patch
-from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 
 
 def _overlap_prep(df: pd.DataFrame) -> pd.DataFrame:
@@ -27,15 +23,11 @@ def get_overlap(yolo_data: pd.DataFrame, boris_data: pd.DataFrame) -> pd.DataFra
     return df
 
 
-# def get_overhang(data: pd.DataFrame) -> pd.DataFrame:
-#     yolo_overhang = data.groupby(["video_id", "id_yolo"])
-
-
 def _suffix_cleaner(col_name: str) -> str:
     return col_name.replace("_yolo", "").replace("_boris", "")
 
 
-def validate_events(data: pd.DataFrame, overlap: float = 0.7) -> pd.DataFrame:
+def grade_events(data: pd.DataFrame, overlap: float = 0.7) -> pd.DataFrame:
     data = data.copy()
     data["min_overlap"] = np.min(data[["overlap_boris", "overlap_yolo"]], axis=1)
     shared = data.query(f"subject_yolo == subject_boris and min_overlap >= {overlap}")
@@ -96,60 +88,3 @@ def event_validation_str(data: pd.DataFrame, long: bool = False) -> str:
     FN = sum(data["result"] == "FN")
     text += _get_validation_text("Summary", TP, FP, FN, TN)
     return text
-
-
-def plot_validations(data: pd.DataFrame) -> tuple[Figure, Axes]:
-    h = 0.8 / 4
-    edge_color = {
-        "no_ring": "w",
-        "ring": "k",
-    }
-    face_color = {
-        "FP": "#d7191c",
-        "FN": "#fdae61",
-        "PAIRED": "#5eaec9",
-        "TP": "#2c7bb6",
-    }
-    end = max(data["end_frame"])
-    data = data.copy()
-    video_num, video_names = pd.factorize(data["video_id"])
-    data["video_num"] = video_num
-    has_ring = data["subject"] == "ring"
-    from_yolo = data["source"] == "YOLO"
-    data["y_pos"] = 0.5 + np.array([-h, 0, -2 * h, h])[has_ring + (2 * from_yolo)]
-
-    fig, ax = plt.subplots(constrained_layout=True)
-    for v in range(0, max(data["video_num"]) + 1):
-        rect = Rectangle((-100, v), end + 700, 1, fc="k", alpha=0.1 + (0.2 * (not v % 2)))
-        ax.add_patch(rect)
-    for _, row in data.iterrows():
-        rect = Rectangle(
-            (row["start_frame"], row["video_num"] + row["y_pos"]),
-            row["end_frame"] - row["start_frame"] + 1,
-            h,
-            fc=face_color[row["result"]],
-            ec=edge_color[row["subject"]],
-            label=row["result"],
-        )
-        ax.add_patch(rect)
-    ax.legend(
-        title="Results",
-        handles=[
-            Patch(fc=face_color["TP"], label="TP (YOLO)"),
-            Patch(fc=face_color["PAIRED"], label="TP (BORIS)"),
-            Patch(fc=face_color["FN"], label="FN (BORIS)"),
-            Patch(fc=face_color["FP"], label="FP (YOLO)"),
-            Patch(fc="0.4", ec=edge_color["ring"], label="ringed"),
-            Patch(fc="0.4", ec=edge_color["no_ring"], label="not ringed"),
-        ],
-        loc="center right",
-        frameon=True,
-        bbox_to_anchor=(1, 0.5),
-        draggable=True,
-    )
-
-    ax.set_yticks(np.arange(len(video_names)) + 0.5, video_names)
-    ax.set_xlim(0, end + 500, auto=False)
-    ax.set_ylim(0, max(data["video_num"]) + 1, auto=False)
-
-    return fig, ax

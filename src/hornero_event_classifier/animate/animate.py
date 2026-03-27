@@ -1,18 +1,22 @@
 from __future__ import annotations
 
-import math
 import time
 from threading import Event, Thread
-from typing import Callable, Optional, SupportsInt
+from typing import Callable, Optional, SupportsInt, TYPE_CHECKING, Literal
 from pathlib import Path
 import cv2
 import hornero_event_classifier.classifiers.pre_calc as ref
 import numpy as np
 from hornero_event_classifier.animate.utils import ComplexEvent
-from hornero_event_classifier.core.data import BBox, Frame, Item, ItemType
-from hornero_event_classifier.core.scene import Scene
+from hornero_event_classifier.core.data import BBox, Frame, ItemType
 from hornero_event_classifier.core.utils import FrameIndexer
+from hornero_event_classifier.config import VIDEO_SOURCE_PATH
 from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from hornero_event_classifier.core.scene import Scene
+
+type Color = tuple[int, int, int]
 
 
 class FramePos:
@@ -31,30 +35,27 @@ class FramePos:
             instance._frame_ready.clear()
 
 
+class AutoRefresher[T]:
+    def __set_name__(self, owner: Renderer, name):
+        # pylint: disable=[attribute-defined-outside-init]
+        self.public_name = name
+        self.private_name = "_" + name
+
+    def __get__(self, instance: Renderer, _=None) -> T:
+        return getattr(instance, self.private_name)
+
+    def __set__(self, instance: Renderer, value: T):
+        setattr(instance, self.private_name, value)
+        if instance.paused:
+            instance.refresh_frame()
+
+
 class InputController:
     def __init__(self) -> None:
         self._event = Event()
 
     def wait(self, timeout: int) -> bool:
         return self._event.wait(timeout)
-
-
-# class FramePos:
-#     def __get__(self, obj: Renderer, type=None) -> float:
-#         return obj._pos
-
-#     def __set__(self, instance: Renderer, value: float):
-#         if value > instance.written_frames + 1 and instance.out_video:
-#             value = instance.written_frames + 1
-#         if value < -1:
-#             value = -1
-#         if value > instance.max_pos:
-#             value = instance.max_pos
-#         if value < instance.min_pos:
-#             value = instance.min_pos
-#         if value != instance._pos and not instance._frame_ready.is_set():
-#             instance._pos = value
-#             instance._frame_ready.set()
 
 
 class Renderer:
@@ -86,13 +87,17 @@ class Renderer:
 
         self.current_frame: NDArray = np.zeros((h, w), np.uint16)
 
+        self._show_ignored: bool = True
+        self._show_birds: bool = True
+        self._show_rings: bool = True
+        self._show_events: bool = True
+
         self.open: bool = True
         self.paused: bool = True
         self._show_boxes: bool = True
         self._frame_ready: ComplexEvent = ComplexEvent()
         self.written_frames: int = -1
         self.pos = 0
-        self.global_point: tuple[int, int] | None = None
         self.render_frame()
 
         self.thread = Thread(target=self.render_loop, daemon=True)
@@ -106,14 +111,11 @@ class Renderer:
     def rescale(self) -> Callable[[NDArray], NDArray]:
         return self._rescale
 
-    @property
-    def show_boxes(self):
-        return self._show_boxes
-
-    @show_boxes.setter
-    def show_boxes(self, val: bool):
-        self._show_boxes = val
-        self.refresh_frame()
+    show_boxes = AutoRefresher[bool]()
+    show_ignored = AutoRefresher[bool]()
+    show_birds = AutoRefresher[bool]()
+    show_rings = AutoRefresher[bool]()
+    show_events = AutoRefresher[bool]()
 
     @property
     def max_pos(self) -> int:
@@ -196,113 +198,81 @@ class Renderer:
                 target = int(self.pos + 1)
                 if self.box_data.has(target):
                     self._animate_frame(self.box_data[target], frame)
-                    # self.box_data[self.pos + 1].animate(frame)
             frame = self.rescale(frame)
             self.write_frame(frame)
             self.current_frame = frame
         self._frame_ready.set()
 
     def _animate_frame(self, frame: Frame, img: NDArray):
-        for old in frame.orphans:
-            self._animate_bbox(old, img, (0, 0, 255), show_id=False)
-        for bird in frame.birds:
-            self._animate_bbox(bird, img, (0, 255, 0 if bird.real else 255), True)
-            if self.global_point:
-                cv2.line(img, (int(bird.x), int(bird.y)), self.global_point, (0, 255, 0))
-                cv2.putText(
-                    img,
-                    str(int((math.atan2((self.global_point[0] - bird.x), -(self.global_point[1] - bird.y)) / math.pi) * 180)),
-                    (int(bird.x), int(bird.y)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 0),
-                    2,
-                    cv2.LINE_AA,
-                )
-            for ring in bird.metrics_cache[ref.local_rings]:
-                cv2.line(img, (int(bird.x), int(bird.y)), (int(ring.x), int(ring.y)), (0, 255, 0))
-                cv2.putText(
-                    img,
-                    str(int((math.atan2(ring.x - bird.x, -(ring.y - bird.y)) / math.pi) * 180)),
-                    (int(ring.x), int(ring.y)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1,
-                    (0, 0, 0),
-                    2,
-                    cv2.LINE_AA,
-                )
-            # cv2.line(img, (int(bird.x), int(bird.y)), (int(bird.xmin), int(bird.ymax)), (0, 255, 0))
-            # cv2.line(img, (int(bird.x), int(bird.y)), (int(bird.xmax), int(bird.ymax)), (0, 255, 0))
-            # angle = math.tan(math.pi / 4)
-            # h = bird.ymax - bird.y
-            # w = angle * h
-            # cv2.line(img, (int(bird.x), int(bird.y)), (int(bird.x - w), int(bird.ymax)), (0, 0, 255))
-            # cv2.line(img, (int(bird.x), int(bird.y)), (int(bird.x + w), int(bird.ymax)), (0, 0, 255))
-        for ring in frame.rings:
-            color = (255, 0, 0) if ring.item_obj.type == ItemType.RING_PLASTIC else (150, 150, 150)
-            self._animate_bbox(ring, img, color, show_id=False)
-        for event in frame.events:
-            self._animate_bbox(event, img, (0, 0, 0), show_id=False)
-            text = event.item_obj.subject.value
-            text = f"{event.item_obj.id}.{event.item_obj.sub_id}: {text}"
-            text_color = (255, 255, 255)
-            (text_width, text_height), text_base = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
-            text_height += 20
-            text_base *= 2
-            text_base += 10
-            cv2.rectangle(
-                img,
-                (int(event.xmin), int(event.ymin - text_height)),
-                (int(event.xmin + text_width), int(event.ymin)),
-                (0, 0, 0),
-                -1,
-            )
-            cv2.putText(
-                img,
-                text,
-                (int(event.xmin), int(event.ymin - (text_base * 0.75))),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                text_color,
-                2,
-                cv2.LINE_AA,
-            )
+        if self.show_ignored:
+            for old in frame.orphans:
+                self._animate_bbox(old, img, (0, 0, 255), show_id=False)
+        if self.show_birds:
+            for bird in frame.birds:
+                self._animate_bbox(bird, img, (0, 255, 0 if bird.real else 255), show_center=True)
+                if self.show_rings:
+                    for ring in bird.metrics_cache.get(ref.local_rings, []):
+                        cv2.line(img, (int(bird.x), int(bird.y)), (int(ring.x), int(ring.y)), (0, 255, 0))
+        if self.show_rings:
+            for ring in frame.rings:
+                color = (255, 0, 0) if ring.item_obj.type == ItemType.RING_PLASTIC else (150, 150, 150)
+                self._animate_bbox(ring, img, color, show_id=False)
+        if self.show_events:
+            for event in frame.events:
+                text = event.item_obj.subject.value
+                text = f"{event.item_obj.id}.{event.item_obj.sub_id}: {text}"
+                self._animate_bbox(event, img, (0, 0, 0), (255, 255, 255), "nw", show_id=True, buffer=5, text_override=text)
 
     def _animate_bbox(
         self,
         bbox: BBox,
         img: NDArray,
-        color: tuple[int, int, int],
+        color: Color,
+        text_color: Color = (0, 0, 0),
+        text_anchor: Literal["ne", "nw", "se", "sw"] = "ne",
+        text_override: str | None = None,
         show_center: bool = False,
         show_id: bool = True,
+        alpha: float = 1.0,
+        buffer: int = 0,
     ):
+        if alpha < 1.0:
+            original_img = img
+            img = original_img.copy()
         if show_center:
             cv2.circle(img, (int(bbox.x), int(bbox.y)), 10, color, -1)
-        cv2.rectangle(img, (int(bbox.xmin), int(bbox.ymin)), (int(bbox.xmax), int(bbox.ymax)), color, 5)
+        cv2.rectangle(
+            img, (int(bbox.xmin - buffer), int(bbox.ymin - buffer)), (int(bbox.xmax + buffer), int(bbox.ymax + buffer)), color, 5
+        )
         if show_id:
-            text = f"{bbox.item_obj.id}.{bbox.item_obj.sub_id}({bbox.conf:.02f})"
-            text_color = (0, 0, 0)
+            text = text_override or f"{bbox.item_obj.id}.{bbox.item_obj.sub_id}({bbox.conf:.02f})"
             (text_width, text_height), text_base = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
             text_height += 20
             text_base *= 2
             text_base += 10
-            cv2.rectangle(
-                img,
-                (int(bbox.xmin), int(bbox.ymin)),
-                (int(bbox.xmin + text_width), int(bbox.ymin + text_height)),
-                color,
-                -1,
-            )
-            cv2.putText(
-                img,
-                text,
-                (int(bbox.xmin), int(bbox.ymin + text_base)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1,
-                text_color,
-                2,
-                cv2.LINE_AA,
-            )
+            match text_anchor:
+                case "ne":
+                    x, y = (int(bbox.xmin - buffer), int(bbox.ymin - buffer))
+                    rect_pt2 = (x + text_width, y + text_height)
+                    text_pos = (x, y + text_base)
+                case "nw":
+                    x, y = (int(bbox.xmax + buffer), int(bbox.ymin - buffer))
+                    rect_pt2 = (x - text_width, y + text_height)
+                    text_pos = (x - text_width, y + text_base)
+                case "se":
+                    x, y = (int(bbox.xmin - buffer), int(bbox.ymax + buffer))
+                    rect_pt2 = (x + text_width, y - text_height)
+                    text_pos = (x, y - text_height + text_base)
+                case "sw":
+                    x, y = (int(bbox.xmax + buffer), int(bbox.ymax + buffer))
+                    rect_pt2 = (x - text_width, y - text_height)
+                    text_pos = (x - text_width, y - text_height + text_base)
+                case _:
+                    raise ValueError("Unsupported text anchor")
+            cv2.rectangle(img, (x, y), rect_pt2, color, -1)
+            cv2.putText(img, text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 1, text_color, 2, cv2.LINE_AA)
+        if alpha < 1.0:
+            cv2.addWeighted(img, alpha, original_img, 1 - alpha, 0, dst=original_img)
 
     def refresh_frame(self):
         if not self.frame_ready:
@@ -324,15 +294,11 @@ class Renderer:
             self.out_video.release()
         self._frame_ready.set()
         self.open = False
-
-    def set_global_point(self, event, x, y, flags, param):
-        if cv2.EVENT_FLAG_LBUTTON == flags:
-            self.global_point = (x, y)
-
-            self.refresh_frame()
+        self._frame_ready.clear()
+        self.thread.join()
 
 
-class Animation:
+class Animator:
     NORMAL: int = 0
     FRAME_JUMP: int = 1
 
@@ -342,8 +308,9 @@ class Animation:
         out_video: Optional[str] = None,
         mask: Optional[NDArray] = None,
         scale: float = 1.0,
-        source: str | Path = Path.home() / "Videos/videos_BORIS",
+        source: str | Path = VIDEO_SOURCE_PATH,
     ):
+        self.scene = scene
         self.open: bool = True
         self.mask = mask
         self.renderer = Renderer(
@@ -358,10 +325,18 @@ class Animation:
         self._start: Optional[int] = None
         self._end: Optional[int] = None
         self.clipped = False
+        self.layers_str: str = ""
+        self._refresh_layers_str()
         cv2.namedWindow("out")
-        cv2.setMouseCallback("out", self.renderer.set_global_point)
         cv2.imshow("out", self.renderer.current_frame)
         self.update_window_name()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.renderer.close()
+        self.close()
 
     @property
     def clipped(self) -> bool:
@@ -376,6 +351,18 @@ class Animation:
         else:
             self.renderer.min_pos = None
             self.renderer.max_pos = None
+
+    def _refresh_layers_str(self):
+        self.layers_str = ""
+        if self.renderer.show_boxes:
+            self.layers_str += "layers: "
+            self.layers_str += "I" if self.renderer.show_ignored else "_"
+            self.layers_str += "B" if self.renderer.show_birds else "_"
+            self.layers_str += "R" if self.renderer.show_rings else "_"
+            self.layers_str += "E" if self.renderer.show_events else "_"
+
+    def set_frame(self, val: int) -> None:
+        self.renderer.jump_to(val)
 
     def set_start(self, val: Optional[int] = None):
         self._start = val
@@ -394,7 +381,6 @@ class Animation:
             ):
                 if self.renderer.current_frame is not self.rendered_frame:
                     c_frame: NDArray = self.renderer.current_frame
-                    # c_frame[self.mask] = (0, 0, 0)
                     cv2.imshow("out", c_frame)
                 if not self.paused:
                     if self.renderer.pos >= self.renderer.max_pos:
@@ -471,13 +457,27 @@ class Animation:
                 self.clipped = not self.clipped
             case 104:  # H
                 self.renderer.show_boxes = not self.renderer.show_boxes
+                self._refresh_layers_str()
+            case 49 | 156:  # 1 | numpad 1
+                self.renderer.show_ignored = not self.renderer.show_ignored
+                self._refresh_layers_str()
+            case 50 | 153:  # 2 | numpad 2
+                self.renderer.show_birds = not self.renderer.show_birds
+                self._refresh_layers_str()
+            case 51 | 155:  # 3 | numpad 3
+                self.renderer.show_rings = not self.renderer.show_rings
+                self._refresh_layers_str()
+            case 52 | 150:  # 4 | numpad 4
+                self.renderer.show_events = not self.renderer.show_events
+                self._refresh_layers_str()
             case other:
                 print(other)
 
     def _frame_jump_key_input(self, key: int):
         match key:
             case 13:  # ENTER
-                self.renderer.jump_to(int(self.text_entry))
+                if self.text_entry:
+                    self.renderer.jump_to(int(self.text_entry))
                 self.state = self.NORMAL
                 self.text_entry = "0"
             case 8:  # BACKSPACE
@@ -495,11 +495,20 @@ class Animation:
 
     def update_window_name(self):
         if self.state == self.FRAME_JUMP:
-            cv2.setWindowTitle("out", f" out (jump to: {self.text_entry}{", Clipped" if self.clipped else ""})")
+            cv2.setWindowTitle(
+                "out",
+                f"{self.scene.video_id} (jump to: {self.text_entry}{", Clipped" if self.clipped else ""}) {self.layers_str}",
+            )
         elif self.paused:
-            cv2.setWindowTitle("out", f"out (frame: {self.renderer.pos}{", Clipped" if self.clipped else ""})")
+            cv2.setWindowTitle(
+                "out",
+                f"{self.scene.video_id} (frame: {self.renderer.pos}{", Clipped" if self.clipped else ""}) {self.layers_str}",
+            )
         else:
-            cv2.setWindowTitle("out", f"out (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""})")
+            cv2.setWindowTitle(
+                "out",
+                f"{self.scene.video_id} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
+            )
 
     def close(self):
         self.open = False

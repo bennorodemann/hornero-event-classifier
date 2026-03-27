@@ -41,6 +41,14 @@ class ItemSegment:
     def __repr__(self) -> str:
         return f"{self.classification}: {self.start} -> {self.end}"
 
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "item_id": self.item.key,
+            "start_frame": self.start,
+            "end_frame": self.end,
+            **{k.name: v for k, v in zip(self.metrics, self.data_summary)},
+        }  # type: ignore
+
     def refresh(self):
         self.boxes.sort()  # key=lambda b: b.frame_obj.frame)
         self.start = self.boxes[0].frame
@@ -51,7 +59,7 @@ class ItemSegment:
             for arg in metric_func_registry.get_args(metric):
                 args.append([box.metrics_cache[arg] for box in self.boxes])
             data.append(metric_func_registry.get(metric)(self.boxes, *args))
-        self.seg_data: NDArray[np.float64] = np.array(list(zip(*data)), np.float64)
+        self.seg_data: NDArray[np.float64] = np.array(list(zip(*data)), np.float64)  # - 0.5
         # self.seg_data = np.nan_to_num(self.seg_data)
         # self.data_summary = np.mean(self.seg_data, axis=0)
         self.seg_data = np.where(np.all(np.isnan(self.seg_data), axis=0), 0, self.seg_data)
@@ -171,23 +179,11 @@ class SegmentCollection:
     def __getitem__(self, key: Item):
         return self.data[self._item_groups[key]]
 
-    def save_csv(self, video_id: str):  # TODO: remove?
-        data = []
-        starts = []
-        ends = []
-        item_ids = []
-        for item, item_slice in self._item_groups.items():
-            for segment in self.segments[item_slice]:
-                data.append(segment.data_summary)
-                starts.append(segment.start)
-                ends.append(segment.end)
-                item_ids.append(item.key)
-        df = pd.DataFrame(data, columns=[m.name for m in self.metrics])
-        df.insert(0, "end", ends)
-        df.insert(0, "start", starts)
-        df.insert(0, "item_id", item_ids)
+    def as_df(self, video_id: str):  # TODO: remove?
+        data = [seg.as_dict() for seg in self.segments]
+        df = pd.DataFrame(data)
         df.insert(0, "video_id", video_id)
-        df.to_csv(f"databases/blocks/{video_id}.csv", index=False)
+        return df
 
 
 class Classifier(ABC):

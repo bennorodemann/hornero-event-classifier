@@ -1,107 +1,120 @@
 from hornero_event_classifier.core import Scene, ItemType
-from hornero_event_classifier.animate.animate import Animation
-from hornero_event_classifier.classifiers import ThresholdClassifier, Metric
+from hornero_event_classifier.animate.animate import Animator
+from hornero_event_classifier.classifiers import ThresholdClassifier, Metric, Classifier
 import hornero_event_classifier.core.filters as filters
+from hornero_event_classifier.config import VIDEO_SOURCE_PATH
+from hornero_event_classifier import tools
+import numpy as np
+
 from pathlib import Path
 import pandas as pd
-from validation_tools.eventval import run_all
-import subprocess
-from PIL import Image
 import matplotlib.pyplot as plt
+from typing import Optional
 
 
-def classify(file: str | Path) -> tuple[pd.DataFrame, Scene]:
+def _no_print(*args, **kwargs) -> None:
+    pass
+
+
+def classify(
+    file: str | Path,
+    classifier: Classifier,
+    show_progress: bool = True,
+    max_bird_gap: int = 100,
+    fill_bird_gaps: bool = True,
+    dont_fill_at_edge: bool = True,
+    remove_low_conf: float = 0.7,
+    combine_events_within: int = 120,
+    min_event_len: int = 100,
+) -> tuple[pd.DataFrame, Scene]:
+    print_func = print if show_progress else _no_print
     file = Path(file)
     filename: str = file.name
-    print(f"{filename}: loading...         ", end="")
+    print_func(f"{filename}: loading...", end="")
     s = Scene.from_csv(file)
-    print(f"\r{filename}: pre-processing...", end="")
-    (
-        s.split_items(filters.make_gap_filter(100), ItemType.BIRD)
-        .fill_gaps(filters.invert_filter(filters.frame_touch_filter), ItemType.BIRD)
-        .split_items(filters.make_gap_filter(2), ItemType.BIRD)
-        .split_items((filters.make_buffer_filter(100), filters.boundary_filter), ItemType.BIRD)
-        .remove_low_conf(0.7, ItemType.BIRD)
-    )
-    print(f"\r{filename}: classifying...   ", end="")
-    (
-        s.classify(
-            ThresholdClassifier(
-                (
-                    Metric.AVG_PLASTIC,
-                    Metric.AVG_Y_SCORE,
-                    Metric.RING_PRESENCE,
-                    Metric.RAD_STD,
-                    Metric.AVG_RING_CONF,
-                    Metric.PER_OWNERSHIP,
-                ),
-                (
-                    0.0359196367482639,
-                    0.364215184150255,
-                    0.597396820220843,
-                    0.377765678705804,
-                    -0.575646002005343,
-                    0.200348682180178,
-                ),
-                0.2898628,
-                # (
-                #     Metric.AVG_RAD_SCORE,
-                #     Metric.AVG_Y_SCORE,
-                #     Metric.RING_PRESENCE,
-                #     Metric.RAD_STD,
-                #     Metric.AVG_RING_CONF,
-                #     Metric.AVG_PLASTIC,
-                # ),
-                # (
-                #     0.0490878247705511,
-                #     0.467235453187786,
-                #     0.383525333012307,
-                #     0.463465766521598,
-                #     -0.434597765850542,
-                #     0.071283388358299,
-                # ),
-                # 0.3462933,
-                # (1575.7270, 7020.6840, 3769.7068, 5581.0615, -1695.0269, 630.0441),
-                # 8087.7294,
-            )
-        )
-        .define_events(120, 100)
-        .remove_minor_items(100, ItemType.EVENT)
-    )
-    print(f"\r{filename}: done             ")
+    print_func(f"\r\033[K{filename}: pre-processing...", end="")
+    s.split_items(filters.make_gap_filter(max_bird_gap), ItemType.BIRD)
+    if fill_bird_gaps:
+        if dont_fill_at_edge:
+            s.fill_gaps(filters.invert_filter(filters.frame_touch_filter), ItemType.BIRD)
+            s.split_items(filters.make_gap_filter(2), ItemType.BIRD)
+        else:
+            s.fill_gaps(None, ItemType.BIRD)
+    s.split_items((filters.make_buffer_filter(100), filters.boundary_filter), ItemType.BIRD)
+    s.remove_low_conf(remove_low_conf, ItemType.BIRD)
+    print_func(f"\r\033[K{filename}: classifying...", end="")
+    s.classify(classifier).define_events(combine_events_within).remove_minor_items(min_event_len, ItemType.EVENT)
+    print_func(f"\r\033[K{filename}: done")
     return s.get_results(), s
 
 
-def animate(file: str | Path):
-    _, s = classify(file)
-    s.fill_gaps(None, ItemType.EVENT)
-    a = Animation(s)
-    a.display_frames()
+def animate(
+    scene: Scene | Path,
+    scale: float = 1,
+    frame: int | None = None,
+    clip: tuple[int, int] | None = None,
+    auto_play: bool = True,
+    out_video: str | None = None,
+    source: str | Path = VIDEO_SOURCE_PATH,
+):
+    if clip and frame and not (clip[0] <= frame <= clip[1]):
+        raise ValueError(f"frame ({frame}) needs to be between clip values {clip}")
+    if isinstance(scene, Path):
+        video_id = tools.get_video_id(scene)
+        video_path = tools.get_video_path(video_id)
+        if not video_path.exists():
+            print(f"Video file not found: {video_path}")
+            return
+        _, scene = classify(scene, show_progress=False)
+    else:
+        video_path = tools.get_video_path(scene.video_id).exists()
+        if not video_path:
+            print(f"Video file not found: {video_path}")
+            return
+    scene.fill_gaps(None, ItemType.EVENT)
+    with Animator(scene, out_video, scale=scale, source=source) as a:
+        if clip:
+            a.set_start(clip[0])
+            a.set_end(clip[1])
+            a.clipped = True
+        if frame:
+            a.set_frame(frame)
+        a.paused = not auto_play
+        a.display_frames()
 
 
-def gen_video_metadata(): ...
+def _bool_to_subject(val: bool) -> str:
+    return "ring" if val else "no_ring"
 
 
-def recommend_weights(): ...
+def recommend_weights(
+    metrics: list[Metric] | None, yolo: pd.DataFrame, boris: pd.DataFrame
+) -> tuple[tuple[float, dict[Metric, float]], pd.DataFrame]:
+    classified = tools.classify_with_boris(yolo=yolo, boris=boris)
+    intercept, weights = tools.recommend_weights(classified, metrics)
+
+    classified = classified.rename(columns={"subject": "real_subject"})
+    classified["calc_subject"] = (np.sum(classified.loc[:, weights.index] * weights, axis=1) >= intercept).map(_bool_to_subject)
+
+    classified["offset"] = (classified.loc[:, weights.index] * weights).sum(axis=1) - intercept
+    return (
+        float(intercept),
+        {Metric[metric]: float(weight) for metric, weight in zip(weights.index, weights.values)},
+    ), classified
 
 
-def validate_events():
-    run_all(target_dir="pYOLOv3", overlap_threshold=0.9)
-
-    result = subprocess.run(
-        ["Rscript", "--vanilla", "analysis/R/event_validation_visual.R", "databases/pYOLOv3_validation"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    img = Image.open(result.stdout)
-    fig, ax = plt.subplots(figsize=(19, 10))
-    ax.imshow(img)
-    ax.axis("off")
-    plt.show()
-
-
-def validate_frames(): ...
-
-
-def validate_overlap(): ...
+def validate_events(
+    yolo_data: pd.DataFrame,
+    boris_data: pd.DataFrame,
+    overlap_threshold: float = 0.8,
+    print_results: bool = True,
+    long_print: bool = False,
+    plot: bool = True,
+):
+    overlaps = tools.get_overlap(yolo_data, boris_data)
+    grades = tools.grade_events(overlaps, overlap=overlap_threshold)
+    if print_results:
+        print(tools.event_validation_str(grades, long_print))
+    if plot:
+        tools.plot_events(grades)
+        plt.show()

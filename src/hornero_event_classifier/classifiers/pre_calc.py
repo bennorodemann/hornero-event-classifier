@@ -49,20 +49,10 @@ def local_ring_counts(boxes: Sequence[BBox]):
         box.metrics_cache[local_ring_counts] = len(box.metrics_cache[local_rings])
 
 
-def _score_ring(bird: BBox, ring: BBox):
-    y_score = (ring.y - bird.ymin) / bird.height
-    x_score = 1 - (abs(ring.x - bird.x) / (bird.width / 2))
-    r_score = abs(atan2(ring.x - bird.x, -(ring.y - bird.y))) / pi
-    w = 1 / 3
-    return (w * y_score) + (w * x_score) + (w * r_score)
-
-
 @_init_dependency((local_rings,))
 def local_y_score(boxes: Sequence[BBox]):
     for box in boxes:
-        box.metrics_cache[local_y_score] = tuple(
-            (ring.y - box.ymin) / box.height for ring in box.metrics_cache[local_rings]
-        )
+        box.metrics_cache[local_y_score] = tuple((ring.y - box.ymin) / box.height for ring in box.metrics_cache[local_rings])
 
 
 @_init_dependency((local_rings,))
@@ -78,17 +68,6 @@ def local_rad_score(boxes: Sequence[BBox]):
     for box in boxes:
         box.metrics_cache[local_rad_score] = tuple(
             abs(atan2(ring.x - box.x, -(ring.y - box.y))) / pi for ring in box.metrics_cache[local_rings]
-        )
-
-
-@_init_dependency((local_y_score, local_x_score, local_rad_score))
-def local_ring_scores(boxes: Sequence[BBox]):
-    for box in boxes:
-        box.metrics_cache[local_ring_scores] = tuple(
-            sum(scores) / 3
-            for scores in zip(
-                box.metrics_cache[local_y_score], box.metrics_cache[local_x_score], box.metrics_cache[local_rad_score]
-            )
         )
 
 
@@ -109,9 +88,7 @@ def local_ring_rotations(boxes: Sequence[BBox]):
 @_init_dependency((local_rings,))
 def local_ring_x_pos(boxes: Sequence[BBox]):
     for box in boxes:
-        box.metrics_cache[local_ring_x_pos] = tuple(
-            (ring.x - box.xmin) / box.width for ring in box.metrics_cache[local_rings]
-        )
+        box.metrics_cache[local_ring_x_pos] = tuple((ring.x - box.xmin) / box.width for ring in box.metrics_cache[local_rings])
 
 
 @_init_dependency((local_rings,))

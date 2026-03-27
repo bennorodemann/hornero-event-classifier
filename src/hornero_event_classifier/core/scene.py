@@ -3,11 +3,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Self, Iterable, Optional
 import pandas as pd
+import warnings
 
 from hornero_event_classifier.classifiers import Classifier, SegmentCollection
 from hornero_event_classifier.core.data import BBox, Frame, Item
 from hornero_event_classifier.core.enums import ItemType, Subject
 from hornero_event_classifier.core.filters import FilterFunc, boundary_filter
+from hornero_event_classifier.tools import get_video_metadata, get_video_id
 from hornero_event_classifier.core.utils import (
     DefaultSpawnDict,
     FrameIndexer,
@@ -27,26 +29,23 @@ def _item_read_spawner(key: str) -> Item:
 
 @dataclass
 class Scene:
-    filename: str
-    source: Path
-    items: ItemTypedCollection[Item] = field(repr=False)
-    frames: FrameIndexer[Frame] = field(repr=False)
+    video_id: str
+    frame_shape: tuple[int, int]
+    items: ItemTypedCollection[Item] = field(default_factory=ItemTypedCollection[Item], repr=False)
+    frames: FrameIndexer[Frame] = field(default_factory=FrameIndexer, repr=False)
+    segments: SegmentCollection | None = field(default=None, repr=False, init=False)
 
     @classmethod
     def from_csv(cls, filepath: str | Path) -> Self:
         filepath = Path(filepath)
         if not filepath.is_file():
             raise FileNotFoundError(f"file not found: {filepath}")
-        with open("databases/general/video_metadata.csv", "r", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            for vid in reader:
-                if vid["video"] == filepath.stem.rsplit("_", 1)[0]:
-                    frame_shape = (int(vid["height"]), int(vid["width"]))
-                    break
-            else:
-                raise ValueError(f"No video found in metadata with name: {filepath.stem.rsplit("_", 1)[0]}")
+        video_id = get_video_id(filepath)
+        metadata = get_video_metadata(video_id)
+        frame_shape = (int(metadata["height"]), int(metadata["width"]))
+        inst = cls(video_id, frame_shape)
         items: DefaultSpawnDict[str, Item] = DefaultSpawnDict(_item_read_spawner)
-        frames: DefaultSpawnDict[int, Frame] = DefaultSpawnDict(Frame, defaults={"frame_shape": frame_shape})
+        frames: DefaultSpawnDict[int, Frame] = DefaultSpawnDict(Frame, defaults={"_scene": inst})
         with open(filepath, "r", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             for data in reader:
@@ -54,16 +53,9 @@ class Scene:
                 BBox.from_yolo(typed_row, items[typed_row["ID"]], frames[typed_row["Frame"]])
         for item in items.values():
             item.release_cache()
-        return cls(
-            filename=filepath.name,
-            source=filepath.parent,
-            items=ItemTypedCollection(items.values()),
-            frames=FrameIndexer(frames),
-        )
-
-    @property
-    def video_id(self) -> str:
-        return self.filename.rsplit("_", 1)[0]
+        inst.items.extend(items.values())
+        inst.frames.include_many(frames.values())
+        return inst
 
     def remove_low_conf(self, threshold: float, *item_types: ItemType) -> Self:
         for item in self.items.get(*item_types):
@@ -98,7 +90,7 @@ class Scene:
                 self.items.add(item)
         return self
 
-    def fill_gaps(self, filter_func: Optional[FilterFunc | Iterable[FilterFunc]] = None, *item_types: ItemType) -> Self:
+    def fill_gaps(self, filter_func: Optional[FilterFunc | Iterable[FilterFunc]], *item_types: ItemType) -> Self:
         filter_func = filter_func or ()
         if isinstance(filter_func, Iterable):
             filter_func = self._combine_filters(tuple(filter_func))
@@ -118,7 +110,7 @@ class Scene:
                     ymax = prev_box.ymax - ((prev_box.ymax - next_box.ymax) * pos)
                     conf = prev_box.conf - ((prev_box.conf - next_box.conf) * pos)
                     if not self.frames.has(frame):
-                        self.frames[frame] = Frame(frame)
+                        self.frames[frame] = Frame(frame, self)
                     frame_obj = self.frames[frame]
                     BBox(
                         frame_obj=frame_obj,
@@ -133,7 +125,9 @@ class Scene:
         return self
 
     # TODO: implement filters (technically deprecated)
+    # TODO: reimplement using filters (need to implement item filters)
     def merge_birds(self, overlap: float, correlation: float, exists_only: bool = False) -> Self:
+        warnings.warn("Scene.merge_birds is no longer being developed and may lead to unexpected behavior")
         birds: list[Item] = sorted(self.items.get(ItemType.BIRD), key=lambda i: i.start)
         overlaps: dict[Item, set[Item]] = {}
         for bird in birds:
@@ -181,57 +175,13 @@ class Scene:
     def remove_minor_items(self, size: int, *item_types: ItemType) -> Self:
         for item in list(self.items.get(*item_types)):
             if len(item.boxes) <= size:
-                # print(f"destroying: {item}")
                 item.ignore = True
-                # item.destroy()
-                # self.items.remove(item)
         return self
 
-    # def split_at_boundary(self, buffer: int = 0) -> Self:
-    #     cuts = {frame for item in self.items.get(ItemType.BIRD) for frame in (item.start, item.end + 1)}
-    #     for frame in cuts:
-    #         frame_obj = self.frames.get(frame, None)
-    #         if frame_obj is not None:
-    #             for bird in frame_obj.birds:
-    #                 if bird.item_obj.start + buffer < frame < bird.item_obj.end - buffer:
-    #                     new = bird.item_obj.cut_at(frame)
-    #                     self.items.add(new)
-    #     return self
-
-    # def split_at_frame_touch(self, buffer: int = 0, max_touch_time: int = 30, merge: int = 30) -> Self:
-    #     ref_frame = self.frames[self.frames.start]
-    #     frame_w = ref_frame.width - 5
-    #     frame_h = ref_frame.height - 5
-    #     for bird in [b for b in self.items.get(ItemType.BIRD)]:
-    #         if (bird.end - bird.start + 1) <= buffer * 2:
-    #             continue
-    #         cuts: list[int] = []
-    #         boxes = [box for box in bird.boxes.get_all() if bird.start + buffer < box.frame < bird.end - buffer]
-    #         length_counter: int = 0
-    #         merge_counter: int = merge
-    #         for box in boxes:
-    #             touching = ((box.xmin < 5 or box.xmax > frame_w) and box.width < frame_w / 2) or (
-    #                 (box.ymin < 5 or box.ymax > frame_h) and box.height < frame_h / 2
-    #             )
-    #             if touching:
-    #                 length_counter += 1
-    #                 merge_counter = merge
-    #             elif length_counter > 0:
-    #                 merge_counter -= 1
-    #                 if merge_counter == 0:
-    #                     if length_counter <= max_touch_time:
-    #                         cuts.append(box.frame)
-    #                     length_counter = 0
-    #                     merge_counter = merge
-    #         for frame in sorted(cuts, reverse=True):
-    #             new = bird.cut_at(frame)
-    #             self.items.add(new)
-    #     return self
-
     def classify(self, classifier: Classifier, segment_length: Optional[int] = None) -> Self:
-        data = SegmentCollection(self.items.get(ItemType.BIRD), classifier.metrics, segment_length=segment_length)
-        classifier.train(data)
-        results = classifier.classify(data)
+        self.segments = SegmentCollection(self.items.get(ItemType.BIRD), classifier.metrics, segment_length=segment_length)
+        classifier.train(self.segments)
+        results = classifier.classify(self.segments)
         for item, segments in results.items():
             item.subject = segments[0].classification
             for segment in segments[:0:-1]:
@@ -240,7 +190,7 @@ class Scene:
                 self.items.add(new_item)
         return self
 
-    def define_events(self, buffer: int = 0, micro_events: int = 0) -> Self:
+    def define_events(self, buffer: int = 0) -> Self:
         cache: list[list[Item]] = []
         active: dict[Subject, list[Item]] = {}
         for item in sorted(self.items.get(ItemType.BIRD), key=lambda b: b.start):
@@ -260,13 +210,6 @@ class Scene:
         for id_, event_data in enumerate(cache, 1):
             event = Item.spawn_event(id_=id_, source=event_data)
             new_events.append(event)
-        # for event in new_events.copy():
-        #     if event.track_len > micro_events:
-        #         continue
-        #     for other_event in [e for e in new_events if e is not event and not e.ignore]:
-        #         if event is not other_event and event.start > other_event.start - buffer and event.end < other_event.end + buffer:
-        #             event.subject = other_event.subject
-        #             new_events.append(Item.combine([event, other_event]))
         for event in new_events:
             self.items.add(event)
         return self
@@ -289,20 +232,4 @@ class Scene:
     def write_to_csv(self, filename: str = "", allow_no_subject: bool = False) -> Self:
         results = self.get_results(not allow_no_subject)
         results.to_csv(filename, index=False)
-        results.groupby()
-        # with open(f"databases/pYOLOv3/{self.video_id}_events.csv", "w", encoding="utf-8") as file:
-        #     writer = csv.DictWriter(file, ("video_id", "subject", "start", "end", "mud"))
-        #     writer.writeheader()
-        #     for event in self.items.get(ItemType.EVENT):
-        #         if not allow_no_subject and event.subject != Subject.NOT_CLASSIFIED:
-        #             raise ValueError("Tried to save an event without a subject")
-        #         writer.writerow(
-        #             {
-        #                 "video_id": self.video_id,
-        #                 "subject": event.subject.value,
-        #                 "start": event.start,
-        #                 "end": event.end,
-        #                 "mud": False,
-        #             }
-        #         )
         return self
