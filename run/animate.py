@@ -1,6 +1,7 @@
 from pathlib import Path
-from hornero_event_classifier.pipelines import animate
+import hornero_event_classifier as hec
+from utils import load_default_classifier
 
-
-source = Path("databases/YOLOexp2/n10_d4_c1_1_cl2_bbox.csv")
-animate(source)
+source = hec.CONFIG.yolo_path/"n10_d4_c1_1_cl2_bbox.csv"
+_, scene = hec.pipelines.classify(source, load_default_classifier())
+hec.pipelines.animate(scene)

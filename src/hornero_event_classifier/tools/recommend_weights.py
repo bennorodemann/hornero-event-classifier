@@ -5,6 +5,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline, Pipeline
 from hornero_event_classifier.classifiers import Metric
 import sklearn
+from numpy.typing import NDArray
 
 sklearn.set_config(enable_metadata_routing=True)
 
@@ -34,15 +35,15 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
 def _get_weights(
     model: LogisticRegression | Pipeline, data: pd.DataFrame, metrics: list[str]
 ) -> tuple[np.float64, pd.Series[np.float64]]:
-    X = data[metrics]
-    y = (data["subject"] == "ring").astype(np.int64)
+    X: pd.DataFrame = data[metrics]
+    y: pd.Series = (data["subject"] == "ring").astype(np.int64)
     model.fit(X, y)
     if isinstance(model, Pipeline):
         model = model.named_steps[next(k for k in model.named_steps.keys() if k.startswith("logisticregression"))]
-    weights = pd.Series(model.coef_[0], index=X.columns)  # type: ignore
-    weights_sum = weights.sum()
+    weights: pd.Series[np.float64] = pd.Series(model.coef_[0], index=X.columns)  # type: ignore
+    weights_sum: np.float64 = weights.sum()
     weights = weights / weights_sum
-    intercept = -model.intercept_[0] / weights_sum  # type: ignore
+    intercept: np.float64 = -model.intercept_[0] / weights_sum  # type: ignore
     return intercept, weights
 
 

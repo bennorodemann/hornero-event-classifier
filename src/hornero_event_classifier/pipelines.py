@@ -1,8 +1,7 @@
 from hornero_event_classifier.core import Scene, ItemType
 from hornero_event_classifier.animate.animate import Animator
-from hornero_event_classifier.classifiers import ThresholdClassifier, Metric, Classifier
+from hornero_event_classifier.classifiers import Metric, Classifier
 import hornero_event_classifier.core.filters as filters
-from hornero_event_classifier.config import VIDEO_SOURCE_PATH
 from hornero_event_classifier import tools
 import numpy as np
 
@@ -49,30 +48,21 @@ def classify(
 
 
 def animate(
-    scene: Scene | Path,
+    scene: Scene,
     scale: float = 1,
     frame: int | None = None,
     clip: tuple[int, int] | None = None,
     auto_play: bool = True,
     out_video: str | None = None,
-    source: str | Path = VIDEO_SOURCE_PATH,
 ):
     if clip and frame and not (clip[0] <= frame <= clip[1]):
         raise ValueError(f"frame ({frame}) needs to be between clip values {clip}")
-    if isinstance(scene, Path):
-        video_id = tools.get_video_id(scene)
-        video_path = tools.get_video_path(video_id)
-        if not video_path.exists():
-            print(f"Video file not found: {video_path}")
-            return
-        _, scene = classify(scene, show_progress=False)
-    else:
-        video_path = tools.get_video_path(scene.video_id).exists()
-        if not video_path:
-            print(f"Video file not found: {video_path}")
-            return
+    video_path = tools.get_video_path(scene.video_id).exists()
+    if not video_path:
+        print(f"Video file not found: {video_path}")
+        return
     scene.fill_gaps(None, ItemType.EVENT)
-    with Animator(scene, out_video, scale=scale, source=source) as a:
+    with Animator(scene, out_video, scale=scale) as a:
         if clip:
             a.set_start(clip[0])
             a.set_end(clip[1])
@@ -109,12 +99,9 @@ def validate_events(
     overlap_threshold: float = 0.8,
     print_results: bool = True,
     long_print: bool = False,
-    plot: bool = True,
-):
-    overlaps = tools.get_overlap(yolo_data, boris_data)
-    grades = tools.grade_events(overlaps, overlap=overlap_threshold)
+) -> pd.DataFrame:
+    overlaps: pd.DataFrame = tools.get_overlap(yolo_data, boris_data)
+    grades: pd.DataFrame = tools.grade_events(overlaps, overlap=overlap_threshold)
     if print_results:
-        print(tools.event_validation_str(grades, long_print))
-    if plot:
-        tools.plot_events(grades)
-        plt.show()
+        print(tools.event_validation_str(grades, long_print)) 
+    return grades

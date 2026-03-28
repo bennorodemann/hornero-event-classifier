@@ -9,7 +9,7 @@ from hornero_event_classifier.classifiers import (
 from hornero_event_classifier.animate.animate import Animator
 from hornero_event_classifier import pipelines
 from hornero_event_classifier import tools
-from hornero_event_classifier import config
+from hornero_event_classifier.config import CONFIG
 
 __all__ = [
     "Scene",
@@ -25,5 +25,5 @@ __all__ = [
     "Animator",
     "pipelines",
     "tools",
-    "config",
+    "CONFIG",
 ]

@@ -6,14 +6,14 @@ from hornero_event_classifier.tools.video import (
     get_video_path,
 )
 from hornero_event_classifier.tools.validate_events import get_overlap, grade_events, event_validation_str
-from hornero_event_classifier.tools.plot import plot_events
+from hornero_event_classifier.tools.plot import EventPlot
 from hornero_event_classifier.tools.recommend_weights import classify_with_boris, recommend_weights
 
 __all__ = [
     "get_overlap",
     "grade_events",
     "event_validation_str",
-    "plot_events",
+    "EventPlot",
     "extract_metadata",
     "gen_metadata_file",
     "get_video_metadata",

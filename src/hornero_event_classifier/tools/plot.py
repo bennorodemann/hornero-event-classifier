@@ -4,11 +4,12 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, Patch
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
+from matplotlib.text import Annotation
 from matplotlib.backend_bases import MouseButton, Event, MouseEvent
 from hornero_event_classifier.animate.animate import Animator
 from hornero_event_classifier.core.data import ItemType
-from hornero_event_classifier.tools.video import get_video_metadata
-from typing import Literal, Any
+from hornero_event_classifier.tools.video import get_video_metadata, VideoMetadata
+from typing import Literal, Any, Callable
 import hornero_event_classifier as hec
 
 
@@ -86,85 +87,90 @@ class ValidationEventBand(EventBand):
         return {"fc": self.FC[data["result"]], "ec": self.EC[data["subject"]]}
 
 
-def plot_events(data: pd.DataFrame) -> tuple[Figure, Axes]:
-    plot_type = "validation" if "source" in data.columns and "result" in data.columns else "event"
+class EventPlot:
+    def __init__(self, df: pd.DataFrame) -> None:
+        self.plot_type: str = "validation" if "source" in df.columns and "result" in df.columns else "event"
 
-    end = 0
-    data = data.copy()
-    data["video_id"] = pd.Categorical(data["video_id"])
-    data["video_num"] = data["video_id"].factorize()[0]
+        end: int = 0
+        df = df.copy()
+        df["video_id"] = pd.Categorical(df["video_id"])
+        df["video_num"] = df["video_id"].factorize()[0]
 
-    fig, ax = plt.subplots(constrained_layout=True)
-    videos = []
-    for y, v in enumerate(data.video_id.dtype.categories):  # type: ignore
-        metadata = get_video_metadata(v)
-        if end <= metadata["duration_f"]:
-            end = metadata["duration_f"]
-        video = VideoBand(v, (0, y), metadata["duration_f"], 1)
-        ax.add_patch(video)
-        videos.append(video)
+        self.fig: Figure
+        self.ax: Axes
+        self.fig, self.ax = plt.subplots(constrained_layout=True)
+        self.videos: list[VideoBand] = []
+        for y, v in enumerate(df.video_id.dtype.categories):  # type: ignore
+            metadata: VideoMetadata = get_video_metadata(v)
+            if end <= metadata["duration_f"]:
+                end = metadata["duration_f"]
+            video = VideoBand(v, (0, y), metadata["duration_f"], 1)
+            self.ax.add_patch(video)
+            self.videos.append(video)
 
-    band_type = EventBand if plot_type == "event" else ValidationEventBand
-    events: dict[int, list[EventBand]] = {}
-    for _, row in data.iterrows():
-        event = band_type(row)
-        ax.add_patch(event)
-        video_num = row["video_num"]
-        if video_num not in events:
-            events[video_num] = []
-        events[video_num].append(event)
+        band_type: type[EventBand] = EventBand if self.plot_type == "event" else ValidationEventBand
+        self.events: dict[int, list[EventBand]] = {}
+        for _, row in df.iterrows():
+            event: EventBand = band_type(row)
+            self.ax.add_patch(event)
+            video_num: int = row["video_num"]
+            if video_num not in self.events:
+                self.events[video_num] = []
+            self.events[video_num].append(event)
 
-    ax.legend(
-        title="Results",
-        handles=band_type.LEGEND_DATA,
-        loc="center right",
-        frameon=True,
-        bbox_to_anchor=(1.07, 0.6),
-    )
-    ax.set_yticks(np.arange(len(data["video_id"].dtype.categories)) + 0.5, data["video_id"].dtype.categories)  # type: ignore
-    ax.set_xlim(0, end, auto=True)
-    ax.set_ylim(0, max(data["video_num"]) + 1, auto=False)
-    title = "Events" if plot_type == "event" else "Validation plot"
-    fig.suptitle(title)
+        self.ax.legend(
+            title="Results",
+            handles=band_type.LEGEND_DATA,
+            loc="center right",
+            frameon=True,
+            bbox_to_anchor=(1.07, 0.6),
+        )
+        self.ax.set_yticks(np.arange(len(df["video_id"].dtype.categories)) + 0.5, df["video_id"].dtype.categories)  # type: ignore
+        self.ax.set_xlim(0, end, auto=True)
+        self.ax.set_ylim(0, max(df["video_num"]) + 1, auto=False)
+        title: str = "Events" if self.plot_type == "event" else "Validation plot"
+        self.fig.suptitle(title)
 
-    annot = ax.annotate("", xy=(0, 0), xytext=(10, 10), textcoords="offset points", bbox=dict(boxstyle="round"), visible=False)
+        self.annotation: Annotation = self.ax.annotate("", xy=(0, 0), xytext=(10, 10), textcoords="offset points", bbox=dict(boxstyle="round"), visible=False)
+        self._open_func: Callable[[str, int], Any] = lambda _, __: _
 
-    def on_click(mouse_event: Event | MouseEvent):
+        self.fig.canvas.mpl_connect("button_press_event", self._on_click)
+        
+    def set_title(self, title: str) -> None:
+        self.fig.suptitle(title)
+        
+    def set_open_func(self, func: Callable[[str, int], Any]) -> None:
+        self._open_func = func
+        
+    def show(self):
+        plt.show()
+
+    def _on_click(self, mouse_event: Event | MouseEvent):
         if not isinstance(mouse_event, MouseEvent):
             return
-        if mouse_event.inaxes == ax and mouse_event.xdata is not None and mouse_event.ydata is not None:
-            if not (0 < int(mouse_event.ydata) < len(videos)):
+        if mouse_event.inaxes == self.ax and mouse_event.xdata is not None and mouse_event.ydata is not None:
+            if not (0 < int(mouse_event.ydata) < len(self.videos)):
                 pass
             elif mouse_event.button == MouseButton.LEFT and mouse_event.key == "control":
-
-                if videos[int(mouse_event.ydata)].contains(mouse_event)[0]:
-                    hec.pipelines.animate(
-                        hec.config.YOLO_PATH / f"{videos[int(mouse_event.ydata)].video_id}_bbox.csv",
-                        frame=int(mouse_event.xdata),
-                        auto_play=False,
-                    )
-                    # _, s = hec.pipelines.classify()
-                    # s.fill_gaps(None, ItemType.EVENT)
-                    # with Animator(s) as a:
-                    #     a.paused = True
-                    #     a.renderer.jump_to(int(mouse_event.xdata))
-                    #     a.display_frames()
+                if self.videos[int(mouse_event.ydata)].contains(mouse_event)[0]:
+                    self._open_func(self.videos[int(mouse_event.ydata)].video_id, int(mouse_event.xdata))
+                    # hec.pipelines.animate(
+                    #     hec.CONFIG.yolo_path / f"{self.videos[int(mouse_event.ydata)].video_id}_bbox.csv",
+                    #     frame=int(mouse_event.xdata),
+                    #     auto_play=False,
+                    # )
                     return
             elif mouse_event.button == MouseButton.LEFT and mouse_event.ydata is not None:
-                for event in events[int(mouse_event.ydata)]:
+                for event in self.events[int(mouse_event.ydata)]:
                     contains, _ = event.contains(mouse_event)
                     if contains:
-                        annot.xy = (mouse_event.xdata, mouse_event.ydata)
+                        self.annotation.xy = (mouse_event.xdata, mouse_event.ydata)
                         label = f"({event.length})\n{event.start_frame} -> {event.end_frame}"
-                        annot.set_text(label)
-                        annot.set_visible(True)
+                        self.annotation.set_text(label)
+                        self.annotation.set_visible(True)
 
-                        annot.set_backgroundcolor(event.get_facecolor())
-                        fig.canvas.draw_idle()
+                        self.annotation.set_backgroundcolor(event.get_facecolor())
+                        self.fig.canvas.draw_idle()
                         return
-        annot.set_visible(False)
-        fig.canvas.draw_idle()
-
-    fig.canvas.mpl_connect("button_press_event", on_click)
-
-    return fig, ax
+            self.annotation.set_visible(False)
+            self.fig.canvas.draw_idle()

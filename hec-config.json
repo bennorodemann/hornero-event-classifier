@@ -1,0 +1,9 @@
+{
+    "data_root": "~/Documents/Scripts/Python/ResearchModuleA/hornero-event-classifier/data",
+    "yolo_path": "{data_root}/YOLO",
+    "results_path": "{data_root}/hec_output.csv",
+    "boris_path": "{data_root}/DB_BORIS.csv",
+    "video_metadata": "{data_root}/video_metadata.json",
+    "video_root": "~/Videos/videos_BORIS",
+    "auto_gen_video_metadata": true
+}

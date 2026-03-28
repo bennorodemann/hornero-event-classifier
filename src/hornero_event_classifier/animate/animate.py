@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from threading import Event, Thread
+from threading import Event, Thread, Timer
 from typing import Callable, Optional, SupportsInt, TYPE_CHECKING, Literal
 from pathlib import Path
 import cv2
@@ -10,7 +10,7 @@ import numpy as np
 from hornero_event_classifier.animate.utils import ComplexEvent
 from hornero_event_classifier.core.data import BBox, Frame, ItemType
 from hornero_event_classifier.core.utils import FrameIndexer
-from hornero_event_classifier.config import VIDEO_SOURCE_PATH
+from hornero_event_classifier.tools import get_video_path
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
@@ -61,7 +61,7 @@ class InputController:
 class Renderer:
     pos: FramePos = FramePos()
 
-    def __init__(self, in_video: str, out_video: Optional[str], box_data: FrameIndexer[Frame], scaler: float = 1.0):
+    def __init__(self, in_video: Path, out_video: Optional[str], box_data: FrameIndexer[Frame], scaler: float = 1.0):
         self.in_video = cv2.VideoCapture(in_video)
         self.video_length = self.in_video.get(cv2.CAP_PROP_FRAME_COUNT) - 1
         self._max_pos = int(self.video_length)
@@ -308,13 +308,12 @@ class Animator:
         out_video: Optional[str] = None,
         mask: Optional[NDArray] = None,
         scale: float = 1.0,
-        source: str | Path = VIDEO_SOURCE_PATH,
     ):
         self.scene = scene
         self.open: bool = True
         self.mask = mask
         self.renderer = Renderer(
-            f"{source}/{scene.video_id.split("_",1)[0]}/{scene.video_id}.mp4", out_video, scene.frames, scaler=scale
+            get_video_path(scene.video_id), out_video, scene.frames, scaler=scale
         )
         self.rendered_frame = None
         self.min_sleep_time: int = 1  # 33
@@ -327,6 +326,7 @@ class Animator:
         self.clipped = False
         self.layers_str: str = ""
         self._refresh_layers_str()
+        self._thread = Thread()
         cv2.namedWindow("out")
         cv2.imshow("out", self.renderer.current_frame)
         self.update_window_name()
@@ -373,7 +373,7 @@ class Animator:
         self._end = val
         if self._clipped:
             self.renderer.max_pos = self._end
-
+            
     def display_frames(self):
         while self.open and self.renderer.open:
             if self.renderer.frame_ready and (
@@ -400,16 +400,16 @@ class Animator:
             # detect if user closed the window
             try:
                 if cv2.getWindowProperty("out", cv2.WND_PROP_VISIBLE) < 1:
-                    self.close()
+                    self._close_no_wait()
             except cv2.error:
-                self.close()
+                self._close_no_wait()
 
     def _normal_key_input(self, key: int):
         match key:
             case -1:
                 pass
             case 27:  # ESCAPE
-                self.close()
+                self._close_no_wait()
             case 101:  # E
                 if self.paused and self.renderer.frame_ready:
                     self.renderer.pos += 30
@@ -509,8 +509,12 @@ class Animator:
                 "out",
                 f"{self.scene.video_id} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
-
-    def close(self):
+            
+    def _close_no_wait(self):
         self.open = False
         self.renderer.close()
         cv2.destroyAllWindows()
+        
+    def close(self):
+        self._close_no_wait()
+        self._thread.join()

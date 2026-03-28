@@ -23,7 +23,7 @@ class ThresholdClassifier(Classifier):
 
     @classmethod
     def from_dict(cls, metric_weights: dict[Metric, float], threshold: float = 0.5) -> Self:
-        metrics, weights = zip(*metric_weights)
+        metrics, weights = zip(*metric_weights.items())
         return cls(metrics, weights, threshold)
 
     def classify_matrix(self, matrix: NDArray[np.floating]) -> NDArray[np.bool]:
