@@ -326,7 +326,6 @@ class Animator:
         self.clipped = False
         self.layers_str: str = ""
         self._refresh_layers_str()
-        self._thread = Thread()
         cv2.namedWindow("out")
         cv2.imshow("out", self.renderer.current_frame)
         self.update_window_name()
@@ -400,16 +399,16 @@ class Animator:
             # detect if user closed the window
             try:
                 if cv2.getWindowProperty("out", cv2.WND_PROP_VISIBLE) < 1:
-                    self._close_no_wait()
+                    self.close()
             except cv2.error:
-                self._close_no_wait()
+                self.close()
 
     def _normal_key_input(self, key: int):
         match key:
             case -1:
                 pass
             case 27:  # ESCAPE
-                self._close_no_wait()
+                self.close()
             case 101:  # E
                 if self.paused and self.renderer.frame_ready:
                     self.renderer.pos += 30
@@ -510,11 +509,7 @@ class Animator:
                 f"{self.scene.video_id} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
             
-    def _close_no_wait(self):
+    def close(self):
         self.open = False
         self.renderer.close()
         cv2.destroyAllWindows()
-        
-    def close(self):
-        self._close_no_wait()
-        self._thread.join()

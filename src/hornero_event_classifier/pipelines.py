@@ -7,8 +7,6 @@ import numpy as np
 
 from pathlib import Path
 import pandas as pd
-import matplotlib.pyplot as plt
-from typing import Optional
 
 
 def _no_print(*args, **kwargs) -> None:
@@ -62,15 +60,15 @@ def animate(
         print(f"Video file not found: {video_path}")
         return
     scene.fill_gaps(None, ItemType.EVENT)
-    with Animator(scene, out_video, scale=scale) as a:
+    with Animator(scene, out_video, scale=scale) as animator:
         if clip:
-            a.set_start(clip[0])
-            a.set_end(clip[1])
-            a.clipped = True
+            animator.set_start(clip[0])
+            animator.set_end(clip[1])
+            animator.clipped = True
         if frame:
-            a.set_frame(frame)
-        a.paused = not auto_play
-        a.display_frames()
+            animator.set_frame(frame)
+        animator.paused = not auto_play
+        animator.display_frames()
 
 
 def _bool_to_subject(val: bool) -> str:
@@ -99,7 +97,7 @@ def validate_events(
     overlap_threshold: float = 0.8,
     print_results: bool = True,
     long_print: bool = False,
-) -> pd.DataFrame:
+) -> pd.DataFrame: 
     overlaps: pd.DataFrame = tools.get_overlap(yolo_data, boris_data)
     grades: pd.DataFrame = tools.grade_events(overlaps, overlap=overlap_threshold)
     if print_results:
