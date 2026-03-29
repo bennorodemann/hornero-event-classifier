@@ -1,8 +1,8 @@
 """The config module automatically finds and loads a local config file. The :code:`CONFIG` variable can be imported by other
-modules for a shared workspace. While there there default values for most variables a config file with the name
+modules for a shared workspace. While there are default values for most variables, a config file with the name
 :code:`hec-config.json` containing at least :code:`{}` **must** be present. The search order for the config file is as follows:
 
-1. the folder of the file that is currently running (or the current working director if not running from a file)
+1. the folder of the file that is currently running (or the current working directory if not running from a file)
 2. the parent folder of the folder from the previous folder
 3. any parent folder named :code:`hornero-event-classifier` from the original folder
 
@@ -68,7 +68,7 @@ class Config:
     def data_root(self) -> Path:
         """The root directory within which other paths can be placed in reference to. The default is: :code:`{config_folder}/data`
 
-        .. note:: this config variable is not used internally and is just for personal convince
+        .. note:: this config variable is not used internally and is just for personal convenience
 
         :rtype: Path
         """
@@ -78,7 +78,7 @@ class Config:
     def yolo_path(self) -> Path:
         """The directory where raw input yolo csv files can be found. The default is: :code:`{data_root}/YOLO`
 
-        .. note:: this config variable is not used internally and is just for personal convince
+        .. note:: this config variable is not used internally and is just for personal convenience
 
         :rtype: Path
         """
@@ -88,7 +88,7 @@ class Config:
     def results_path(self) -> Path:
         """The path to save classifications results to. The default is: :code:`{data_root}/hec_output.csv`
 
-        .. note:: this config variable is not used internally and is just for personal convince
+        .. note:: this config variable is not used internally and is just for personal convenience
 
         :rtype: Path
         """
@@ -98,7 +98,7 @@ class Config:
     def boris_path(self) -> Path:
         """The path to a boris validation csv file. The default is: :code:`{data_root}/DB_BORIS.csv`
 
-        .. note:: this config variable is not used internally and is just for personal convince
+        .. note:: this config variable is not used internally and is just for personal convenience
 
         :rtype: Path
         """
@@ -106,7 +106,7 @@ class Config:
 
     @property
     def video_metadata(self) -> Path:
-        """The path a video metadata json file. If this is not set or the file can not be found, metadata will be extracted
+        """The path to a video metadata json file. If this is not set or the file can not be found, metadata will be extracted
         directly from video in :py:meth:`Config.video_root`. The default is: :code:`{data_root}/video_metadata.json`
 
         :rtype: Path
@@ -115,8 +115,8 @@ class Config:
 
     @property
     def video_root(self) -> Path:
-        """The path to a directory of the original videos. The video directory must be structured such that video are placed
-        into their nest sub directories (e.g. :code:`{video_root}/n1/n1_....mp4`, :code:`{video_root}/n8/n8_....mp4`). The default
+        """The path to a directory of the original videos. The video directory must be structured such that videos are placed
+        into their nested subdirectories (e.g. :code:`{video_root}/n1/n1_....mp4`, :code:`{video_root}/n8/n8_....mp4`). The default
         is: :code:`~/Videos/videos_BORIS`
 
         .. warning:: This variable is required to use :py:mod:`animate` functionality
@@ -166,7 +166,7 @@ class Config:
                 "height": 720,
             }
 
-        There is not default value.
+        There is no default value.
 
         :raises AttributeError: raised if default_video_metadata is called but not set. There is no default value.
         :rtype: VideoMetadata

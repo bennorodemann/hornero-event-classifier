@@ -1,4 +1,4 @@
-"""The defines several helper classes and functions to be used within :py:mod:`hornero_event_classifier.core`."""
+"""This module defines several helper classes and functions to be used within :py:mod:`hornero_event_classifier.core`."""
 
 from __future__ import annotations
 
@@ -75,7 +75,7 @@ def type_yolo_data(data: dict[str, str]) -> YOLOData:
 
     :param data: YOLO csv row dict
     :type data: dict[str, str]
-    :return: typed dict
+    :return: typed dict, following :py:class:`YOLOData`
     :rtype: YOLOData
     """
     return {
@@ -112,10 +112,8 @@ class IDDistributor:
 
 
 class DefaultSpawnDict[K, V](dict[K, V]):
-    """A custom dictionary subclass similar to `defaultdicts`_. This class works like a dictionary except that if a value is
-    indexed and does not exist, then a new object is created using the index key as an input argument.
-
-    .. _defaultdicts: https://docs.python.org/3/library/collections.html#collections.defaultdict
+    """A custom dictionary subclass similar to :py:class:`collections.defaultdict`. This class works like a dictionary except
+    that if a value is indexed and does not exist, then a new object is created using the index key as an input argument.
 
     :param obj_factory: a callable that takes at least one input argument and returns an object
     :type obj_factory: Callable[..., V]
@@ -205,6 +203,10 @@ class FrameIndexer[T: HasFrame]:
         >>> "frame: 10"
 
     .. warning:: Unlike most of python, :py:class:`FrameIndexer` slicing is end inclusive.
+
+    .. note:: The length of a :py:class:`FrameIndexer` is the inclusive span from the minimum to maximum frame
+        (:code:`end - start + 1`), not the count of stored items. If there are gaps, the length can be greater than the number
+        of items.
     """
 
     def __init__(self, *args, **kwargs):
@@ -243,6 +245,7 @@ class FrameIndexer[T: HasFrame]:
         return iter(self._data)
 
     def __len__(self):
+        """Return the inclusive span from :py:attr:`start` to :py:attr:`end`, not the count of stored items."""
         return (self.end - self.start) + 1
 
     @classmethod
@@ -397,7 +400,7 @@ class FrameCache[T: HasFrame]:
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        if exc_type is not None:
+        if exc_type is None:
             self.release()
 
 
