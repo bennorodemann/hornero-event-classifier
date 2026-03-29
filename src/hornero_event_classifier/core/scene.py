@@ -14,7 +14,6 @@ from hornero_event_classifier.core.utils import (
     DefaultSpawnDict,
     FrameIndexer,
     YOLOData,
-    compare_seq,
     type_yolo_data,
     ItemTypedCollection,
     ResultDict,
@@ -79,7 +78,8 @@ class Scene:
             original = (filter_func,)
         for item in list(self.items.get(*item_types)):
             cut_frames: list[int] = []
-            for prev_box, next_box in compare_seq(item.boxes):
+            data: list[BBox] = list(item.boxes.get_all())
+            for prev_box, next_box in zip(data, data[1:]):
                 if filter_func(prev_box, next_box):
                     if boundary_filter in original:
                         pass

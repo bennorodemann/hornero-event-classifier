@@ -1,15 +1,16 @@
-from hornero_event_classifier.core import Scene, ItemType
-from hornero_event_classifier.animate.animate import Animator
-from hornero_event_classifier.classifiers import Metric, Classifier
-import hornero_event_classifier.core.filters as filters
-from hornero_event_classifier import tools
-import numpy as np
-
 from pathlib import Path
+
+import numpy as np
 import pandas as pd
 
+import hornero_event_classifier.core.filters as filters
+from hornero_event_classifier import tools
+from hornero_event_classifier.animate.animate import Animator
+from hornero_event_classifier.classifiers import Classifier, Metric
+from hornero_event_classifier.core import ItemType, Scene
 
-def _no_print(*args, **kwargs) -> None:
+
+def _no_print(*_, **__) -> None:
     pass
 
 
@@ -96,10 +97,10 @@ def validate_events(
     boris_data: pd.DataFrame,
     overlap_threshold: float = 0.8,
     print_results: bool = True,
-    long_print: bool = False
-) -> pd.DataFrame:  
+    long_print: bool = False,
+) -> pd.DataFrame:
     overlaps: pd.DataFrame = tools.get_overlap(yolo_data, boris_data)
     grades: pd.DataFrame = tools.grade_events(overlaps, overlap=overlap_threshold)
     if print_results:
-        print(tools.event_validation_str(grades, long_print)) 
+        print(tools.event_validation_str(grades, long_print))
     return grades

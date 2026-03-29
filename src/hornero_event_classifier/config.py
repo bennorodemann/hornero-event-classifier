@@ -1,15 +1,15 @@
-"""The config module automatically finds and loads a local config file. The `CONFIG` variable can be imported by other modules
-for a shared workspace. While there there default values for most variables a config file with the name `hec-config.json`
-containing at least `{}` **must** be present. The search order for the config file is as follows:
+"""The config module automatically finds and loads a local config file. The :code:`CONFIG` variable can be imported by other
+modules for a shared workspace. While there there default values for most variables a config file with the name
+:code:`hec-config.json` containing at least :code:`{}` **must** be present. The search order for the config file is as follows:
 
 1. the folder of the file that is currently running (or the current working director if not running from a file)
 2. the parent folder of the folder from the previous folder
-3. any parent folder named `hornero-event-classifier` from the original folder
+3. any parent folder named :code:`hornero-event-classifier` from the original folder
 
-See :py:class:`Config` for config options. Custom variables may also be set and retrieved using `CONFIG["custom_var"]`. Variables
-can use `~/` at the start of a path to reference their home directory. File path variable can reference one another as well as the
-folder of the config file (using the keyword `config_folder`) as shown below:
-.. code-block:: python3
+See :py:class:`Config` for config options. Custom variables may also be set and retrieved using :code:`CONFIG["custom_var"]`.
+Variables can use :code:`~/` at the start of a path to reference their home directory. File path variable can reference one
+another as well as the folder of the config file (using the keyword :code:`config_folder`) as shown below::
+
     {
         "some_var": "{config_folder}/../..",
         "data_root": "{some_var}/data",
@@ -17,10 +17,11 @@ folder of the config file (using the keyword `config_folder`) as shown below:
         "boris_path": "~/Documents/boris.csv"
     }
 
-.. warning:: Some parts of `hornero-event-classifier` require video metadata info such as frame size or video length. As such it
-is required that at least one variable of :py:meth:`Config.video_metadata`, :py:meth:`Config.video_root`, or
-:py:meth:`Config.default_video_metadata` must be set or the defaults must be valid. However, the use of
-:py:meth:`Config.default_video_metadata` is strongly discouraged and has no default.
+.. warning::
+    Some parts of :mod:`hornero_event_classifier` require video metadata info such as frame size or video length. As such it
+    is required that at least one variable of :py:meth:`Config.video_metadata`, :py:meth:`Config.video_root`, or
+    :py:meth:`Config.default_video_metadata` must be set or the defaults must be valid. However, the use of
+    :py:meth:`Config.default_video_metadata` is strongly discouraged and has no default.
 """
 
 from __future__ import annotations
@@ -52,9 +53,9 @@ CONFIG_DEFAULTS: dict[str, Any] = {
 
 
 class Config:
-    """The `Config` class holds a configuration dictionary and allows to variables through properties and indexing while not
-    allowing for writing of variables. Variables can also be retrieved using indexing (`Config['data_root`]`) allowing for the
-    retrieving of custom config variables. This class should not be initiated by the user or any other modules.
+    """The :code:`Config` class holds a configuration dictionary and allows to variables through properties and indexing while not
+    allowing for writing of variables. Variables can also be retrieved using indexing (:code:`Config['data_root`]`) allowing for
+    the retrieving of custom config variables. This class should not be initiated by the user or any other modules.
 
     :param data: a dictionary of config variables
     :type data: dict[str, Any]
@@ -65,7 +66,8 @@ class Config:
 
     @property
     def data_root(self) -> Path:
-        """The root directory within which other paths can be placed in reference to. The default is: `{config_folder}/data`
+        """The root directory within which other paths can be placed in reference to. The default is: :code:`{config_folder}/data`
+
         .. note:: this config variable is not used internally and is just for personal convince
 
         :rtype: Path
@@ -74,7 +76,8 @@ class Config:
 
     @property
     def yolo_path(self) -> Path:
-        """The directory where raw input yolo csv files can be found. The default is: `{data_root}/YOLO`
+        """The directory where raw input yolo csv files can be found. The default is: :code:`{data_root}/YOLO`
+
         .. note:: this config variable is not used internally and is just for personal convince
 
         :rtype: Path
@@ -83,7 +86,8 @@ class Config:
 
     @property
     def results_path(self) -> Path:
-        """The path to save classifications results to. The default is: `{data_root}/hec_output.csv`
+        """The path to save classifications results to. The default is: :code:`{data_root}/hec_output.csv`
+
         .. note:: this config variable is not used internally and is just for personal convince
 
         :rtype: Path
@@ -92,7 +96,8 @@ class Config:
 
     @property
     def boris_path(self) -> Path:
-        """The path to a boris validation csv file. The default is: `{data_root}/DB_BORIS.csv`
+        """The path to a boris validation csv file. The default is: :code:`{data_root}/DB_BORIS.csv`
+
         .. note:: this config variable is not used internally and is just for personal convince
 
         :rtype: Path
@@ -102,7 +107,7 @@ class Config:
     @property
     def video_metadata(self) -> Path:
         """The path a video metadata json file. If this is not set or the file can not be found, metadata will be extracted
-        directly from video in :py:meth:`Config.video_root`. The default is: `{data_root}/video_metadata.json`
+        directly from video in :py:meth:`Config.video_root`. The default is: :code:`{data_root}/video_metadata.json`
 
         :rtype: Path
         """
@@ -111,11 +116,14 @@ class Config:
     @property
     def video_root(self) -> Path:
         """The path to a directory of the original videos. The video directory must be structured such that video are placed
-        into their nest sub directories (e.g. `{video_root}/n1/n1_....mp4`, `{video_root}/n8/n8_....mp4`). The default is:
-        `~/Videos/videos_BORIS`
-        .. warning:: This variable is required to use :py:module:`animate` functionality
-        .. warning:: If :py:meth:`Config.video_metadata` and :py:meth:`Config.video_root` are not set then the system falls back
-        to :py:meth:`Config.default_video_metadata` which is not recommended
+        into their nest sub directories (e.g. :code:`{video_root}/n1/n1_....mp4`, :code:`{video_root}/n8/n8_....mp4`). The default
+        is: :code:`~/Videos/videos_BORIS`
+
+        .. warning:: This variable is required to use :py:mod:`animate` functionality
+
+        .. warning::
+            If :py:meth:`Config.video_metadata` and :py:meth:`Config.video_root` are not set then the system falls back
+            to :py:meth:`Config.default_video_metadata` which is not recommended
 
         :rtype: Path
         """
@@ -123,9 +131,8 @@ class Config:
 
     @property
     def auto_gen_video_metadata(self) -> bool:
-        """A boolean value if video metadata should be generated automatically. The default is: `True`
+        """A boolean value if video metadata should be generated automatically. The default is: :code:`True`
 
-        :return: _description_
         :rtype: bool
         """
         return self._data["auto_gen_video_metadata"]
@@ -134,6 +141,7 @@ class Config:
     def default_video_metadata(self) -> VideoMetadata:
         """A default video metadata dictionary to be used if :py:meth:`Config.video_metadata` and :py:meth:`Config.video_root` are
         not set. The dictionary keys should include:
+
         +------------+-------+---------------------------------+
         | Key        | Type  | Meaning                         |
         +============+=======+=================================+
@@ -147,7 +155,9 @@ class Config:
         +------------+-------+---------------------------------+
         | height     | int   | the height of video frames      |
         +------------+-------+---------------------------------+
+
         .. code-block:: python3
+
             {
                 "fps": "30/1",
                 "duration_s": 3600.0,
@@ -158,7 +168,7 @@ class Config:
 
         There is not default value.
 
-        :raises AttributeError: raised if default_video_metadata is not set an exception is raised. There is no default value.
+        :raises AttributeError: raised if default_video_metadata is called but not set. There is no default value.
         :rtype: VideoMetadata
         """
         if "default_video_metadata" not in self._data:
@@ -219,6 +229,7 @@ def _load_config(path: Path) -> Config:
     return Config(data)
 
 
+#: the loaded instance of :py:class:`Config` that other modules can reference
 CONFIG: Config = _load_config(_find_config_file())
 
 if __name__ == "__main__":
