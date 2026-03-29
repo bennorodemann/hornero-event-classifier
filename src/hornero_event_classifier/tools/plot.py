@@ -131,17 +131,19 @@ class EventPlot:
         title: str = "Events" if self.plot_type == "event" else "Validation plot"
         self.fig.suptitle(title)
 
-        self.annotation: Annotation = self.ax.annotate("", xy=(0, 0), xytext=(10, 10), textcoords="offset points", bbox=dict(boxstyle="round"), visible=False)
+        self.annotation: Annotation = self.ax.annotate(
+            "", xy=(0, 0), xytext=(10, 10), textcoords="offset points", bbox=dict(boxstyle="round"), visible=False
+        )
         self._open_func: Callable[[str, int], Any] = lambda _, __: _
 
         self.fig.canvas.mpl_connect("button_press_event", self._on_click)
-        
+
     def set_title(self, title: str) -> None:
         self.fig.suptitle(title)
-        
+
     def set_open_func(self, func: Callable[[str, int], Any]) -> None:
         self._open_func = func
-        
+
     def show(self):
         plt.show()
 
@@ -154,11 +156,6 @@ class EventPlot:
             elif mouse_event.button == MouseButton.LEFT and mouse_event.key == "control":
                 if self.videos[int(mouse_event.ydata)].contains(mouse_event)[0]:
                     self._open_func(self.videos[int(mouse_event.ydata)].video_id, int(mouse_event.xdata))
-                    # hec.pipelines.animate(
-                    #     hec.CONFIG.yolo_path / f"{self.videos[int(mouse_event.ydata)].video_id}_bbox.csv",
-                    #     frame=int(mouse_event.xdata),
-                    #     auto_play=False,
-                    # )
                     return
             elif mouse_event.button == MouseButton.LEFT and mouse_event.ydata is not None:
                 for event in self.events[int(mouse_event.ydata)]:

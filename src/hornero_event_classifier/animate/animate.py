@@ -194,11 +194,11 @@ class Renderer:
         self._frame_ready.wait_for_clear()
         success, frame = self.grab_frame()
         if success:
+            frame = self._rescale(frame)
             if self.show_boxes:
                 target = int(self.pos + 1)
                 if self.box_data.has(target):
                     self._animate_frame(self.box_data[target], frame)
-            frame = self.rescale(frame)
             self.write_frame(frame)
             self.current_frame = frame
         self._frame_ready.set()
@@ -212,7 +212,13 @@ class Renderer:
                 self._animate_bbox(bird, img, (0, 255, 0 if bird.real else 255), show_center=True)
                 if self.show_rings:
                     for ring in bird.metrics_cache.get(ref.local_rings, []):
-                        cv2.line(img, (int(bird.x), int(bird.y)), (int(ring.x), int(ring.y)), (0, 255, 0))
+                        cv2.line(
+                            img,
+                            (int(bird.x * self._scaler), int(bird.y * self._scaler)),
+                            (int(ring.x * self._scaler), int(ring.y * self._scaler)),
+                            (0, 255, 0),
+                            thickness=int(self._scaler * 2),
+                        )
         if self.show_rings:
             for ring in frame.rings:
                 color = (255, 0, 0) if ring.item_obj.type == ItemType.RING_PLASTIC else (150, 150, 150)
@@ -221,7 +227,7 @@ class Renderer:
             for event in frame.events:
                 text = event.item_obj.subject.value
                 text = f"{event.item_obj.id}.{event.item_obj.sub_id}: {text}"
-                self._animate_bbox(event, img, (0, 0, 0), (255, 255, 255), "nw", show_id=True, buffer=5, text_override=text)
+                self._animate_bbox(event, img, (0, 0, 0), (255, 255, 255), "nw", show_id=True, text_override=text)
 
     def _animate_bbox(
         self,
@@ -239,38 +245,54 @@ class Renderer:
         if alpha < 1.0:
             original_img = img
             img = original_img.copy()
+        x = int(bbox.x * self._scaler)
+        y = int(bbox.y * self._scaler)
+        xmin = int(bbox.xmin * self._scaler)
+        xmax = int(bbox.xmax * self._scaler)
+        ymin = int(bbox.ymin * self._scaler)
+        ymax = int(bbox.ymax * self._scaler)
+        buffer = int(buffer * self._scaler)
         if show_center:
-            cv2.circle(img, (int(bbox.x), int(bbox.y)), 10, color, -1)
-        cv2.rectangle(
-            img, (int(bbox.xmin - buffer), int(bbox.ymin - buffer)), (int(bbox.xmax + buffer), int(bbox.ymax + buffer)), color, 5
-        )
+            cv2.circle(img, (x, y), int(10 * self._scaler), color, -1)
+        cv2.rectangle(img, (xmin - buffer, ymin - buffer), (xmax + buffer, ymax + buffer), color, int(5 * self._scaler))
         if show_id:
             text = text_override or f"{bbox.item_obj.id}.{bbox.item_obj.sub_id}({bbox.conf:.02f})"
-            (text_width, text_height), text_base = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 1, 2)
+            (text_width, text_height), text_base = cv2.getTextSize(
+                text, cv2.FONT_HERSHEY_SIMPLEX, int(1 * self._scaler), int(2 * self._scaler)
+            )
             text_height += 20
             text_base *= 2
             text_base += 10
             match text_anchor:
                 case "ne":
-                    x, y = (int(bbox.xmin - buffer), int(bbox.ymin - buffer))
+                    x, y = (xmin - buffer, ymin - buffer)
                     rect_pt2 = (x + text_width, y + text_height)
                     text_pos = (x, y + text_base)
                 case "nw":
-                    x, y = (int(bbox.xmax + buffer), int(bbox.ymin - buffer))
+                    x, y = (xmax + buffer, ymin - buffer)
                     rect_pt2 = (x - text_width, y + text_height)
                     text_pos = (x - text_width, y + text_base)
                 case "se":
-                    x, y = (int(bbox.xmin - buffer), int(bbox.ymax + buffer))
+                    x, y = (xmin - buffer, ymax + buffer)
                     rect_pt2 = (x + text_width, y - text_height)
                     text_pos = (x, y - text_height + text_base)
                 case "sw":
-                    x, y = (int(bbox.xmax + buffer), int(bbox.ymax + buffer))
+                    x, y = (xmax + buffer, ymax + buffer)
                     rect_pt2 = (x - text_width, y - text_height)
                     text_pos = (x - text_width, y - text_height + text_base)
                 case _:
                     raise ValueError("Unsupported text anchor")
             cv2.rectangle(img, (x, y), rect_pt2, color, -1)
-            cv2.putText(img, text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 1, text_color, 2, cv2.LINE_AA)
+            cv2.putText(
+                img,
+                text,
+                text_pos,
+                cv2.FONT_HERSHEY_SIMPLEX,
+                int(1 * self._scaler),
+                text_color,
+                int(2 * self._scaler),
+                cv2.LINE_AA,
+            )
         if alpha < 1.0:
             cv2.addWeighted(img, alpha, original_img, 1 - alpha, 0, dst=original_img)
 
@@ -312,9 +334,7 @@ class Animator:
         self.scene = scene
         self.open: bool = True
         self.mask = mask
-        self.renderer = Renderer(
-            get_video_path(scene.video_id), out_video, scene.frames, scaler=scale
-        )
+        self.renderer = Renderer(get_video_path(scene.video_id), out_video, scene.frames, scaler=scale)
         self.rendered_frame = None
         self.min_sleep_time: int = 1  # 33
         self.last_render_time: float = 0
@@ -326,8 +346,10 @@ class Animator:
         self.clipped = False
         self.layers_str: str = ""
         self._refresh_layers_str()
-        cv2.namedWindow("out")
+
+        cv2.namedWindow("out", cv2.WINDOW_NORMAL)
         cv2.imshow("out", self.renderer.current_frame)
+        cv2.resizeWindow("out", 1920, 1080)
         self.update_window_name()
 
     def __enter__(self):
@@ -372,7 +394,7 @@ class Animator:
         self._end = val
         if self._clipped:
             self.renderer.max_pos = self._end
-            
+
     def display_frames(self):
         while self.open and self.renderer.open:
             if self.renderer.frame_ready and (
@@ -508,8 +530,11 @@ class Animator:
                 "out",
                 f"{self.scene.video_id} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
-            
+
     def close(self):
         self.open = False
         self.renderer.close()
-        cv2.destroyAllWindows()
+        try:
+            cv2.destroyWindow("out")
+        except cv2.error:
+            pass

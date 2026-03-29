@@ -96,8 +96,8 @@ def validate_events(
     boris_data: pd.DataFrame,
     overlap_threshold: float = 0.8,
     print_results: bool = True,
-    long_print: bool = False,
-) -> pd.DataFrame: 
+    long_print: bool = False
+) -> pd.DataFrame:  
     overlaps: pd.DataFrame = tools.get_overlap(yolo_data, boris_data)
     grades: pd.DataFrame = tools.grade_events(overlaps, overlap=overlap_threshold)
     if print_results:
