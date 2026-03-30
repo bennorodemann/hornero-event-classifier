@@ -1,3 +1,8 @@
+"""Metric definitions and their registered logic.
+
+.. currentmodule:: hornero_event_classifier.classifiers
+"""
+
 from __future__ import annotations
 
 from enum import IntEnum, auto
@@ -18,55 +23,88 @@ if TYPE_CHECKING:
 
 
 class Metric(IntEnum):
-    """An Enum class of metric options that can be passed to
-    :py:class:`~hornero_event_classifier.classifiers.base.Classifier`\\s.
-    All metrics return values between 0 and 1."""
+    """An Enum class of metric options that can be passed to :py:class:`base.Classifier`\\s.
+
+    All metrics return values between 0 and 1.
+    """
 
     RING_PRESENCE = auto()
-    """Proportion of frames that contain any :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings`.
-    (0 = no frames contained rings, 1 = all frames contained a ring)"""
+    """Proportion of frames that contain any :py:func:`dependencies.local_rings`.
+
+    (0 = no frames contained rings, 1 = all frames contained a ring)
+    """
     CENTER_RING_PRESENCE = auto()
-    """The same as :py:attr:`Metric.RING_PRESENCE` but ignoring the first and last quarter of all frames."""
+    """The same as :py:attr:`Metric.RING_PRESENCE` but ignoring the first and last quarter of all frames.
+    
+    (0 = no frames contained rings, 1 = all frames contained a ring)
+    """
     PER_OWNERSHIP = auto()
-    """The proportion of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` /
-    :py:func:`~hornero_event_classifier.classifiers.dependencies.global_rings`."""
+    """The proportion of :py:func:`dependencies.local_rings` / :py:func:`dependencies.global_rings` per frame.
+    
+    (0 = no rings in frame are local, 1 = all ring in frame are local, NaN = no global rings)"""
     RING_COUNT = auto()
-    """A proportional representation of the number of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` in
-    each frame. Capped at 5 rings. (0 = no rings present, 1 = 5 or more rings present)"""
+    """A proportional representation of the number of :py:func:`dependencies.local_rings` in each frame.
+
+    Capped at 5 rings. (NaN = no local rings, 1 = 5 or more local rings present)
+    """
     AVG_RING_CONF = auto()
-    """The average confidence value of all :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` per frame"""
+    """The average confidence value of all :py:func:`dependencies.local_rings` per frame.
+    
+    (0 = not confident, 1 = confident, NaN = no local rings)
+    """
     AVG_RING_REAL = auto()
-    """The percent of real (non-interpolated) :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` per frame
+    """The percent of real (non-interpolated) :py:func:`dependencies.local_rings` per frame.
+    
+    (0 = no real local rings, 1 = all real local rings, NaN = no local rings)
     """
     AVG_X_SCORE = auto()
-    """The average proportional x distance of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings`
-        to the center of the bird's :py:class:`~hornero_event_classifier.core.data.BBox` per frame. (0 = in the center, 1 = on
-        left or right side of bbox)"""
+    """The average proportional x distance of :py:func:`dependencies.local_rings` to the center of the bird's
+    :py:class:`~hornero_event_classifier.core.data.BBox` per frame. 
+    
+    (0 = in the center, 1 = on left or right side of bbox, NaN = no local rings)
+    """
     AVG_Y_SCORE = auto()
-    """The average proportional y position of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings`
-        in the bird's :py:class:`~hornero_event_classifier.core.data.BBox` per frame. (0 = top, 1 = bottom of bbox)"""
+    """The average proportional y position of :py:func:`dependencies.local_rings` in the bird's
+    :py:class:`~hornero_event_classifier.core.data.BBox` per frame. 
+    
+    (0 = top, 1 = bottom of bbox, NaN = no local rings)
+    """
     AVG_RAD_SCORE = auto()
-    """The average proportional angle of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings`
-        to the center of the bird's :py:class:`~hornero_event_classifier.core.data.BBox` per frame. (0 = straight up (90°), 1 =
-        straight down (-90°))"""
+    """The average proportional angle of :py:func:`dependencies.local_rings` to the center of the bird's
+    :py:class:`~hornero_event_classifier.core.data.BBox` per frame. 
+    
+    (0 = straight up (90°), 1 = straight down (-90°), NaN = no local rings)
+    """
     AVG_PLASTIC = auto()
-    """The proportion of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` that are plastic."""
+    """The proportion of :py:func:`dependencies.local_rings` that are plastic.
+    
+    (0 = only metal rings, 1 = only plastic rings, NaN = no local rings)
+    """
     X_STD = auto()
-    """The standard deviation of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` relative x position
-        in the bird's :py:class:`~hornero_event_classifier.core.data.BBox` across all frames."""
+    """The standard deviation of :py:func:`dependencies.local_rings` relative x position in the bird's
+    :py:class:`~hornero_event_classifier.core.data.BBox` across all frames.
+    
+    (0 = no deviation, 1 = full deviation, NaN = no local rings)
+    """
     RAD_STD = auto()
-    """The standard deviation of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` relative angle to the
-        center of the bird's :py:class:`~hornero_event_classifier.core.data.BBox` across all frames."""
+    """The standard deviation of :py:func:`dependencies.local_rings` relative angle to the center of the bird's
+    :py:class:`~hornero_event_classifier.core.data.BBox` across all frames.
+    
+    (0 = no deviation, 1 = full deviation, NaN = no local rings)
+    """
     GLOBAL_X_STD = auto()
-    """The standard deviation of :py:func:`~hornero_event_classifier.classifiers.dependencies.local_rings` relative x position
-        in relation to the entire frame across all frames."""
+    """The standard deviation of :py:func:`dependencies.local_rings` relative x position in relation to the entire frame across
+    all frames.
+    
+    (0 = no deviation, 1 = full deviation, NaN = no local rings)
+    """
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}.{self.name}"
 
 
 class MetricRegistry[O]:
-    """A registry class for :py:class:`Metric` logic functions"""
+    """A registry class for :py:class:`Metric` logic functions."""
 
     def __init__(self) -> None:
         self._registry: dict[Metric, Callable[..., O]] = {}
@@ -84,7 +122,7 @@ class MetricRegistry[O]:
 
         :param key: corresponding :py:class:`Metric`
         :type key: Metric
-        :param takes: :py:class:`~hornero_event_classifier.classifiers.dependencies.Dependency`\\s that will be passed as input
+        :param takes: :py:class:`dependencies.Dependency`\\s that will be passed as input
             arguments, defaults to ()
         :type takes: Sequence[req.Dependency] | req.Dependency, optional
         :return: a function that accepts the actual logic function and registers it the the provided :py:class:`Metric`
@@ -111,18 +149,18 @@ class MetricRegistry[O]:
         return self._registry[key]
 
     def get_args(self, key: Metric) -> Sequence[req.Dependency]:
-        """Get the :py:class:`~hornero_event_classifier.classifiers.dependencies.Dependency` input arguments that the logic
+        """Get the :py:class:`dependencies.Dependency` input arguments that the logic
         function requires.
 
         :param key: the search :py:class:`Metric`
         :type key: Metric
-        :return: the :py:class:`~hornero_event_classifier.classifiers.dependencies.Dependency` the logic function takes as inputs
+        :return: the :py:class:`dependencies.Dependency` the logic function takes as inputs
         :rtype: Sequence[req.Dependency]
         """
         return self._takes[key]
 
     def get_dependency_list(self, key: Metric) -> set[req.Dependency]:
-        """Get all required :py:class:`~hornero_event_classifier.classifiers.dependencies.Dependency`\\s and child dependencies.
+        """Get all required :py:class:`dependencies.Dependency`\\s and child dependencies.
 
         :param key: _description_
         :type key: Metric

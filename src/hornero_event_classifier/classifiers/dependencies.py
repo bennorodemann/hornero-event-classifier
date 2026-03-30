@@ -1,3 +1,8 @@
+"""Dependency builders for classifier metrics.
+
+.. currentmodule:: hornero_event_classifier.core
+"""
+
 from __future__ import annotations
 
 from math import atan2, pi
@@ -11,10 +16,12 @@ _index_counter: count = count()
 
 
 class Dependency(Protocol):  # pylint: disable=too-few-public-methods
-    """A Protocol describing a callable that has a specific order and may require other :py:class:`Dependency`\\s. The callable
-    should accept a :py:type:`Sequence` of :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-    :py:class:`~hornero_event_classifier.core.data.BBox`\\s and add information to
-    :py:attr:`~hornero_event_classifier.core.data.BBox.metrics_cache` using itself as the key."""
+    """A Protocol describing a callable with an execution order and optional dependencies.
+
+    The callable should accept a :py:type:`Sequence` of
+    :py:attr:`~enums.ItemType.BIRD` :py:class:`~data.BBox`\\s and
+    add results to :py:attr:`data.BBox.metrics_cache` using itself as the key.
+    """
 
     #: the order index of the :py:class:`Dependency`
     order: int
@@ -35,10 +42,10 @@ def _init_dependency(dependencies: Sequence[Dependency] = ()):
 
 @_init_dependency()
 def global_rings(boxes: Sequence[BBox]):
-    """Adds a :py:type:`tuple` of all ring :py:class:`~hornero_event_classifier.core.data.Item`\\s in the current frame.
+    """Cache a :py:type:`tuple` of all ring :py:class:`~data.Item`\\s in the current frame.
 
-    :param boxes: :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-        :py:class:`~hornero_event_classifier.core.data.BBox`\\s to modify
+    :param boxes: :py:attr:`~enums.ItemType.BIRD`
+        :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
     for box in boxes:
@@ -47,12 +54,10 @@ def global_rings(boxes: Sequence[BBox]):
 
 @_init_dependency()
 def local_rings(boxes: Sequence[BBox]):
-    """Adds a :py:type:`tuple` of all ring :py:class:`~hornero_event_classifier.core.data.Item`\\s in the current frame where the
-    center of the rings :py:class:`~hornero_event_classifier.core.data.BBox` is within each
-    :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD` :py:class:`~hornero_event_classifier.core.data.BBox`.
+    """Cache rings whose centers fall within each bird :py:class:`~data.BBox`.
 
-    :param boxes: :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-        :py:class:`~hornero_event_classifier.core.data.BBox`\\s to modify
+    :param boxes: :py:attr:`~enums.ItemType.BIRD`
+        :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
     # if global rings are already added pull global ring list from there otherwise get global ring list for itself
@@ -66,10 +71,10 @@ def local_rings(boxes: Sequence[BBox]):
 
 @_init_dependency((local_rings,))
 def local_ring_counts(boxes: Sequence[BBox]):
-    """Adds a :py:type:`int` of the number of local rings. (depends on :py:func:`local_rings`)
+    """Cache the number of :py:func:`local_rings` per bird. (depends on :py:func:`local_rings`)
 
-    :param boxes: :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-        :py:class:`~hornero_event_classifier.core.data.BBox`\\s to modify
+    :param boxes: :py:attr:`~enums.ItemType.BIRD`
+        :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
     for box in boxes:
@@ -78,13 +83,12 @@ def local_ring_counts(boxes: Sequence[BBox]):
 
 @_init_dependency((local_rings,))
 def local_y_score(boxes: Sequence[BBox]):
-    """Adds a :py:type:`tuple` of :py:type:`float`\\s for each :py:func:`local_rings` representing the proportional y position of
-    each ring within the :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`\\s
-    :py:class:`~hornero_event_classifier.core.data.BBox`. 0 = top of bounding box, 1 = bottom of bounding box. (depends on
-    :py:func:`local_rings`)
+    """Cache proportional y positions of :py:func:`local_rings` within each bird :py:class:`BBox`.
 
-    :param boxes: :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-        :py:class:`~hornero_event_classifier.core.data.BBox`\\s to modify
+    0 = top of bounding box, 1 = bottom of bounding box. (depends on :py:func:`local_rings`)
+
+    :param boxes: :py:attr:`~enums.ItemType.BIRD`
+        :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
     # ymin: is the top of the bounding box
@@ -94,13 +98,12 @@ def local_y_score(boxes: Sequence[BBox]):
 
 @_init_dependency((local_rings,))
 def local_ring_x_pos(boxes: Sequence[BBox]):
-    """Adds a :py:type:`tuple` of :py:type:`float`\\s for each :py:func:`local_rings` representing the proportional x position of
-    each ring within the :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`\\s
-    :py:class:`~hornero_event_classifier.core.data.BBox`. 0 = left most side, 1 = right most side of bounding box. (depends on
-    :py:func:`local_rings`)
+    """Cache proportional x positions of :py:func:`local_rings` within each bird :py:class:`BBox`.
 
-    :param boxes: :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-        :py:class:`~hornero_event_classifier.core.data.BBox`\\s to modify
+    0 = leftmost side, 1 = rightmost side of bounding box. (depends on :py:func:`local_rings`)
+
+    :param boxes: :py:attr:`~enums.ItemType.BIRD`
+        :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
     for box in boxes:
@@ -109,13 +112,12 @@ def local_ring_x_pos(boxes: Sequence[BBox]):
 
 @_init_dependency((local_rings,))
 def local_ring_rotations(boxes: Sequence[BBox]):
-    """Adds a :py:type:`tuple` of :py:type:`float`\\s for each :py:func:`local_rings` representing the proportional angle of
-    each ring to the center of the :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`\\s
-    :py:class:`~hornero_event_classifier.core.data.BBox`. 1 and -1 = straight up (90°), 0 = straight down (-90°). (depends on
-    :py:func:`local_rings`)
+    """Cache proportional angles from the bird center to each :py:func:`local_rings`.
 
-    :param boxes: :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-        :py:class:`~hornero_event_classifier.core.data.BBox`\\s to modify
+    1 and -1 = straight up (90°), 0 = straight down (-90°). (depends on :py:func:`local_rings`)
+
+    :param boxes: :py:attr:`~enums.ItemType.BIRD`
+        :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
     for box in boxes:
@@ -126,11 +128,10 @@ def local_ring_rotations(boxes: Sequence[BBox]):
 
 @_init_dependency((local_rings,))
 def local_real_rings(boxes: Sequence[BBox]):
-    """Adds a :py:type:`tuple` of all :py:func:`local_rings` :py:class:`~hornero_event_classifier.core.data.Item`\\s that are
-    (non-interpolated :py:class:`~hornero_event_classifier.core.data.BBox`\\s). (depends on :py:func:`local_rings`)
+    """Cache the :py:func:`local_rings` that are real (non-interpolated) :py:class:`BBox`\\s.
 
-    :param boxes: :py:attr:`~hornero_event_classifier.core.enums.ItemType.BIRD`
-        :py:class:`~hornero_event_classifier.core.data.BBox`\\s to modify
+    :param boxes: :py:attr:`~enums.ItemType.BIRD`
+        :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
     for box in boxes:
