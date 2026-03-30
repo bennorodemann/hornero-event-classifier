@@ -5,7 +5,7 @@ from threading import Event, Thread, Timer
 from typing import Callable, Optional, SupportsInt, TYPE_CHECKING, Literal
 from pathlib import Path
 import cv2
-import hornero_event_classifier.classifiers.pre_calc as ref
+import hornero_event_classifier.classifiers.dependencies as ref
 import numpy as np
 from hornero_event_classifier.animate.utils import ComplexEvent
 from hornero_event_classifier.core.data import BBox, Frame, ItemType

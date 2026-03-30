@@ -149,6 +149,7 @@ class Item:
     sub_id: int = 0
     subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
     ignore: bool = False
+    # TODO: replace with itertools.count
     _id_distributor: IDDistributor = field(default_factory=IDDistributor)
     _boxes: FrameIndexer[BBox] = field(default_factory=FrameIndexer, init=False)
     _cache: FrameCache[BBox] | None = field(default=None, init=False)

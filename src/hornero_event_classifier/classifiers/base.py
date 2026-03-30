@@ -21,7 +21,7 @@ from hornero_event_classifier.classifiers.metrics import (
     Metric,
     metric_func_registry,
 )
-from hornero_event_classifier.classifiers.pre_calc import Dependency
+from hornero_event_classifier.classifiers.dependencies import Dependency
 from hornero_event_classifier.core import BBox, Item, Subject
 from numpy.typing import NDArray
 
