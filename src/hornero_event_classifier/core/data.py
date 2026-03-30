@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 import math
-from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from typing import (
     TYPE_CHECKING,
-    Callable,
     Generator,
     Iterable,
     Self,
     Sequence,
 )
 
-from hornero_event_classifier.core.utils import FrameCache, FrameIndexer, IDDistributor, YOLOData, ItemTypedCollection, ResultDict
-
 from hornero_event_classifier.core.enums import ItemType, Subject
+from hornero_event_classifier.core.utils import (
+    FrameCache,
+    FrameIndexer,
+    IDDistributor,
+    ItemTypedCollection,
+    YOLOData,
+)
 
 if TYPE_CHECKING:
     from hornero_event_classifier.core.scene import Scene

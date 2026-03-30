@@ -16,6 +16,7 @@ release = "1.0"
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
 ]
 
 templates_path = ["_templates"]
@@ -30,3 +31,4 @@ html_static_path = ["_static"]
 
 
 autodoc_member_order = "bysource"
+autosummary_generate = True
