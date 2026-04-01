@@ -25,7 +25,7 @@ boris = pd.read_csv(CONFIG.boris_path)
 
 (threshold, weights), results = pipelines.recommend_weights(TEST_METRICS, segment_data, boris)
 
-weights = {k.name:v for k,v in weights.items()}
+weights = {k.name: v for k, v in weights.items()}
 print(f"weights: {weights}")
 print(f"threshold: {threshold}")
 print(results[[col for col in results.columns]][results["real_subject"] != results["calc_subject"]])

@@ -33,8 +33,7 @@ def frame_touch_filter(box1: BBox, box2: BBox) -> bool:
     :return: ``True`` if either box touches the frame boundary, otherwise ``False``.
     :rtype: bool
     """
-    frame = box1.frame_obj
-    return box1.touching_boundary(frame.width, frame.height, 5) or box2.touching_boundary(frame.width, frame.height, 5)
+    return box1.touching_boundary(5) or box2.touching_boundary(5)
 
 
 def make_buffer_filter(buffer: int) -> FilterFunc:

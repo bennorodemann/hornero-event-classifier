@@ -1,32 +1,44 @@
+"""Core classifier building blocks and shared utilities."""
+
 from __future__ import annotations
 
-import csv
 from abc import ABC, abstractmethod
-from enum import Flag, auto
 from typing import (
-    TYPE_CHECKING,
     Any,
     Callable,
     Iterable,
     Optional,
-    Protocol,
     Self,
     Sequence,
 )
-import warnings
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
+
+from hornero_event_classifier.classifiers.dependencies import Dependency
 from hornero_event_classifier.classifiers.metrics import (
     Metric,
     metric_func_registry,
 )
-from hornero_event_classifier.classifiers.dependencies import Dependency
 from hornero_event_classifier.core import BBox, Item, Subject
-from numpy.typing import NDArray
 
 
-class ItemSegment:
+class ItemSegment:  # pylint: disable=too-many-instance-attributes
+    """A sub-segment of :py:class:`~.core.data.Item` that holds a sub-section :py:class:`~.core.data.BBox`\\es and holds
+    :py:class:`~.Metric` data arrays about the :py:class:`~core.data.BBox`\\es. This is the class type that
+    :py:class:`Classifier`\\s use. This class should generally be initiated using :py:class:`SegmentCollection`.
+
+    len(:py:class:`ItemSegment`) returns the number of :py:class:`~.core.data.BBox`\\es in the segment
+
+    :param item: parent :py:class:`~core.data.Item`
+    :type item: Item
+    :param boxes: a sequence of :py:class:`~.core.data.BBox`\\es from the parent
+    :type boxes: Sequence[BBox]
+    :param metrics: :py:class:`~.classifiers.metrics.Metric`\\s to collect data on
+    :type metrics: Iterable[Metric]
+    """
+
     def __init__(self, item: Item, boxes: Sequence[BBox], metrics: Iterable[Metric]) -> None:
         self.item: Item = item
         self.metrics: Iterable[Metric] = metrics
@@ -41,41 +53,19 @@ class ItemSegment:
     def __repr__(self) -> str:
         return f"{self.classification}: {self.start} -> {self.end}"
 
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "item_id": self.item.key,
-            "start_frame": self.start,
-            "end_frame": self.end,
-            **{k.name: v for k, v in zip(self.metrics, self.data_summary)},
-        }  # type: ignore
-
-    def refresh(self):
-        self.boxes.sort()  # key=lambda b: b.frame_obj.frame)
-        self.start = self.boxes[0].frame
-        self.end = self.boxes[-1].frame
-        data = []
-        for metric in self.metrics:
-            args = []
-            for arg in metric_func_registry.get_args(metric):
-                args.append([box.metrics_cache[arg] for box in self.boxes])
-            data.append(metric_func_registry.get(metric)(self.boxes, *args))
-        self.seg_data: NDArray[np.float64] = np.array(list(zip(*data)), np.float64)  # - 0.5
-        # self.seg_data = np.nan_to_num(self.seg_data)
-        # self.data_summary = np.mean(self.seg_data, axis=0)
-        self.seg_data = np.where(np.all(np.isnan(self.seg_data), axis=0), 0, self.seg_data)
-        self.data_summary: NDArray[np.float64] = np.nanmean(self.seg_data, axis=0)
-
-        # self.data_summary = np.where(np.all(np.isnan(self.seg_data), axis=0), 0, np.nanmean(self.seg_data, axis=0))
-        # with warnings.catch_warnings():
-        #     warnings.filterwarnings("ignore", category=RuntimeWarning)
-        # self.data_summary: NDArray[np.float64] = np.nanmean(self.seg_data, axis=0)
-        # self.data_summary = np.nan_to_num(self.data_summary)
-
     def __len__(self):
         return len(self.boxes)
 
     @classmethod
     def combine(cls, source: Sequence[ItemSegment]) -> Self:
+        """Merge segments that share the same parent item and classification.
+
+        :param source: Segments to merge (must share parent item and classification)
+        :type source: Sequence[ItemSegment]
+        :raises ValueError: If segments do not share the same item and classification
+        :return: Combined segment
+        :rtype: Self
+        """
         ref: ItemSegment = source[0]
         if not all(box.classification == ref.classification and box.item is ref.item for box in source):
             raise ValueError("All source Segments must have the same classification and item")
@@ -85,13 +75,46 @@ class ItemSegment:
 
     @property
     def size(self):
+        """Return the inclusive frame span of the segment."""
         return (self.boxes[-1].frame - self.boxes[0].frame) + 1
 
     @property
     def max_birds(self):
+        """Return the maximum number of birds in any frame within the segment."""
         return max(sum(1 for _ in box.frame_obj.birds) for box in self.boxes)
 
+    def as_dict(self) -> dict[str, Any]:
+        """Serialize the segment summary to a dictionary."""
+        return {
+            "item_id": self.item.key,
+            "start_frame": self.start,
+            "end_frame": self.end,
+            **{k.name: v for k, v in zip(self.metrics, self.data_summary)},
+        }
+
+    def refresh(self):
+        """Recompute cached metric data for the current segment boxes. This is called automatically when data is changed using
+        a method."""
+        self.boxes.sort()
+        self.start = self.boxes[0].frame
+        self.end = self.boxes[-1].frame
+        data = []
+        for metric in self.metrics:
+            args = []
+            # gather input arguments
+            for arg in metric_func_registry.get_args(metric):
+                args.append([box.metrics_cache[arg] for box in self.boxes])
+            # get metric data (on a per box basis) and append to data
+            data.append(metric_func_registry.get(metric)(self.boxes, *args))
+        # convert data list to array (rows = box data, columns = metric data)
+        self.seg_data: NDArray[np.float64] = np.array(list(zip(*data)), np.float64)
+        # new array where metrics that are NaN for all boxes, convert them to 0, otherwise leave as is (this if to avoid warnings)
+        no_nan_only = np.where(np.all(np.isnan(self.seg_data), axis=0), 0, self.seg_data)
+        # get mean of each metric ignoring NaNs
+        self.data_summary: NDArray[np.float64] = np.nanmean(no_nan_only, axis=0)
+
     def include(self, data: ItemSegment | Iterable[BBox]):
+        """Extend this segment with another segment or a sequence of boxes."""
         if isinstance(data, ItemSegment):
             self.boxes.extend(data.boxes)
         else:
@@ -99,11 +122,21 @@ class ItemSegment:
         self.refresh()
 
     def get_tail_segment(self, count: int) -> ItemSegment:
+        """Return a new segment containing only the final ``count`` boxes."""
         out = ItemSegment(self.item, self.boxes[-count:], self.metrics)
         out.classification = self.classification
         return out
 
     def cut(self, index: int, from_end: bool = True) -> list[BBox]:
+        """Cut the segment and return the removed boxes.
+
+        :param index: Cut index (negative values count from the end)
+        :type index: int
+        :param from_end: If ``True``, cut from the end; otherwise cut from the start
+        :type from_end: bool
+        :return: Boxes removed from this segment
+        :rtype: list[BBox]
+        """
         if abs(index) >= len(self):
             raise ValueError(f"Cut index out of range: {index}")
         if from_end:
@@ -116,6 +149,8 @@ class ItemSegment:
         return out
 
     def edit_border(self, other: ItemSegment, offset: int):
+        """Shift a shared border between adjacent segments by ``offset`` frames."""
+        # check if shares border and normalize order
         if self.end + 1 == other.start:
             prev, next_ = self, other
         elif self.start - 1 == other.end:
@@ -129,6 +164,7 @@ class ItemSegment:
         if offset < 0:
             try:
                 next_.include(prev.cut(offset))
+                return
             except ValueError as e:
                 raise e from ValueError(f"Offset out of range: {offset}")
         # if offset is positive
@@ -136,23 +172,39 @@ class ItemSegment:
 
 
 class SegmentCollection:
+    """Collection of :py:class:`ItemSegment`\\s built from a set of :py:class:`~.core.data.Item`\\s.
+
+    :param items: Items to segment
+    :type items: Iterable[Item]
+    :param metrics: Metrics to compute per segment
+    :type metrics: Iterable[Metric]
+    :param segment_length: Optional fixed length for segmentation, if None (the default) full item length is used
+    :type segment_length: Optional[int], optional
+    """
+
     def __init__(self, items: Iterable[Item], metrics: Iterable[Metric], segment_length: Optional[int] = None) -> None:
         self.metrics: tuple[Metric, ...] = tuple(metrics)
         self.target_segment_len: int | None = segment_length
         segments: list[ItemSegment] = []
-        self._item_groups: dict[Item, slice] = {}
+        self.item_groups: dict[Item, slice] = {}
         items = list(items)
         prev_len: int | None = None
+        # get and load metric dependencies
         cache_seq = self._get_cache_sequence(metrics)
         for item in items:
             boxes = tuple(item.boxes.get_all())
+            # run dependency functions
             for func in cache_seq:
                 func(boxes)
+            # load segments and add them to all segments list
             segments.extend(self._load_segments(item, boxes, self.metrics, segment_length=segment_length))
             new_len = len(segments)
-            self._item_groups[item] = slice(prev_len, new_len)
+            # remember which indexes correspond to which items
+            self.item_groups[item] = slice(prev_len, new_len)
             prev_len = new_len
+        # lock down segments
         self.segments: tuple[ItemSegment, ...] = tuple(segments)
+        # combine all segment data into single array for quick analysis
         self.data: NDArray[np.floating] = np.array([segment.data_summary for segment in segments])
 
     @staticmethod
@@ -171,15 +223,19 @@ class SegmentCollection:
         return sorted(all_funcs, key=lambda d: d.order)
 
     def item_segment_data(self) -> Iterable[NDArray[np.floating]]:
-        return (self.data[self._item_groups[item]] for item in self._item_groups)
+        """Iterate over per-item segment data arrays."""
+        return (self.data[slice_] for slice_ in self.item_groups.values())
 
     def item_segments(self) -> Iterable[tuple[ItemSegment, ...]]:
-        return (self.segments[self._item_groups[item]] for item in self._item_groups)
+        """Iterate over per-item segment tuples."""
+        return (self.segments[slice_] for slice_ in self.item_groups.values())
 
-    def __getitem__(self, key: Item):
-        return self.data[self._item_groups[key]]
+    def __getitem__(self, key: Item) -> NDArray[np.floating]:
+        """Return the data matrix for a single :py:class:`~core.data.Item`."""
+        return self.data[self.item_groups[key]]
 
-    def as_df(self, video_id: str):  # TODO: remove?
+    def as_df(self, video_id: str):
+        """Return a pandas DataFrame summary of all segments. (For debugging purposes)"""
         data = [seg.as_dict() for seg in self.segments]
         df = pd.DataFrame(data)
         df.insert(0, "video_id", video_id)
@@ -187,28 +243,43 @@ class SegmentCollection:
 
 
 class Classifier(ABC):
+    """Abstract base class for classifiers operating on :py:class:`SegmentCollection` data."""
+
     def __init__(self, metrics: Iterable[Metric]) -> None:
         self.metrics: tuple[Metric, ...] = tuple(metrics)
 
     def train(self, data: SegmentCollection):
-        pass
+        """Optional training hook for subclasses."""
 
     def classify(self, data: SegmentCollection) -> dict[Item, Sequence[ItemSegment]]:
+        """Classify segments for each item and return :py:meth:`_simplify`\\ed segment groups.
+
+        This method should generally not be overwritten when subclassing.
+        """
+        if data.metrics != self.metrics:
+            raise ValueError(f"The metrics of {type(self).__name__} and {type(data).__name__} do not match.")
+        # get classification results
         classifications = self.classify_matrix(data.data)
+        # apply classifications to segments
         self._apply_classifications(data.segments, classifications)
-        for item_idx in data._item_groups.values():
-            if item_idx.stop is not None and item_idx.start is not None and item_idx.stop - item_idx.start <= 1:
-                continue
-            classifications[item_idx] = self.clean_seq(data.segments[item_idx], classifications[item_idx])
+        # for group if item segments, if there more than one segment call self.clean_seq
+        for item_idx in data.item_groups.values():
+            item_segments = data.segments[item_idx]
+            if len(item_segments) > 1:
+                classifications[item_idx] = self.clean_seq(data.segments[item_idx], classifications[item_idx])
+        # apply cleaned classifications
         self._apply_classifications(data.segments, classifications)
-        return {item: self._simplify(data.segments[item_idx]) for item, item_idx in data._item_groups.items()}
+        # return dict of condensed segments of consecutive segments with the same classification
+        return {item: self._simplify(data.segments[item_idx]) for item, item_idx in data.item_groups.items()}
 
     @staticmethod
     def _apply_classifications(segments: Iterable[ItemSegment], classifications: Iterable[bool] | NDArray[np.bool]):
+        """Apply boolean classifications to a sequence of segments."""
         for segment, classification in zip(segments, classifications):
             segment.classification = Subject(classification)
 
     def _simplify(self, segments: tuple[ItemSegment, ...]) -> tuple[ItemSegment, ...]:
+        """Merge adjacent segments that share the same classification."""
         if len(segments) <= 1:
             return segments
         cur_seq: list[ItemSegment] = [segments[0]]
@@ -222,36 +293,29 @@ class Classifier(ABC):
         return tuple(ItemSegment.combine(segment_seq) for segment_seq in segment_seqs)
 
     @abstractmethod
-    def classify_matrix(self, matrix: NDArray[np.floating]) -> NDArray[np.bool]: ...
+    def classify_matrix(self, matrix: NDArray[np.floating]) -> NDArray[np.bool]:
+        """Primary methods that **must** be overwritten for subclasses to initiate. This method takes a matrix of data and
+        classifies it.
 
-    @abstractmethod
-    def clean_seq(self, segment: tuple[ItemSegment, ...], raw_classifications: NDArray[np.bool]) -> NDArray[np.bool]: ...
+        :param matrix: Input matrix with the same number of columns as the classifier has :py:class:`Metric`\\s.
+        :type matrix: NDArray[np.floating]
+        :return: A matrix of boolean of the same length as ``matrix`` rows.
+        :rtype: NDArray[np.bool]
+        """
 
-    def smooth(self, classifications: NDArray[np.bool]) -> NDArray[np.bool]:
-        return classifications
+    def clean_seq(self, segments: tuple[ItemSegment, ...], raw_classifications: NDArray[np.bool]) -> NDArray[np.bool]:
+        """An optional method for post processing of segment classifications.
 
-    def _calculate_border_offset(self, segment1: ItemSegment, segment2: ItemSegment) -> int:
-        return 0
+        This method is called when an item has more than one segment (``segment_length < len(item)``). This method can be used to
+        clean noisy classification results.
 
-    def save_segment_csv(self, video_id: str, data: SegmentCollection):
-        with open(f"databases/blocks/{video_id}.csv", "w", encoding="utf-8") as file:
-            writer = csv.DictWriter(
-                file, ("video_id", "item_id", "segment_id", "frame", "type", "xmin", "xmax", "ymin", "ymax", "conf")
-            )
-            writer.writeheader()
-            for segment_id, segment in enumerate(data.segments, 1):
-                for box in segment.boxes:
-                    writer.writerow(
-                        {
-                            "video_id": video_id,
-                            "item_id": segment.item.key,
-                            "segment_id": segment_id,
-                            "frame": box.frame,
-                            "type": segment.item.type.value,
-                            "xmin": box.xmin,
-                            "xmax": box.xmax,
-                            "ymin": box.ymin,
-                            "ymax": box.ymax,
-                            "conf": box.conf,
-                        }
-                    )
+        By default this method return ``raw_classifications`` unchanged.
+
+        :param segments: All item segments belonging to a specific item.
+        :type segments: tuple[ItemSegment, ...]
+        :param raw_classifications: The original classifications for provided segments.
+        :type raw_classifications: NDArray[np.bool]
+        :return: The cleaned boolean array of the same length as ``raw_classifications``
+        :rtype: NDArray[np.bool]
+        """
+        return raw_classifications
