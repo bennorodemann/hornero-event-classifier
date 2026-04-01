@@ -5,7 +5,6 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline, Pipeline
 from hornero_event_classifier.classifiers import Metric
 import sklearn
-from numpy.typing import NDArray
 
 sklearn.set_config(enable_metadata_routing=True)
 

@@ -7,7 +7,6 @@ from hornero_event_classifier.classifiers import (
     ThresholdClassifier,
 )
 from hornero_event_classifier.animate.animate import Animator
-from hornero_event_classifier import pipelines
 from hornero_event_classifier import tools
 from hornero_event_classifier.config import CONFIG
 
@@ -23,7 +22,6 @@ __all__ = [
     "Frame",
     "Item",
     "Animator",
-    "pipelines",
     "tools",
     "CONFIG",
 ]

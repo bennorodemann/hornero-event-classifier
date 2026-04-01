@@ -9,18 +9,18 @@ from typing import (
     Self,
     Sequence,
 )
+from itertools import count
 
 from hornero_event_classifier.core.enums import ItemType, Subject
 from hornero_event_classifier.core.utils import (
     FrameCache,
     FrameIndexer,
-    IDDistributor,
     ItemTypedCollection,
     YOLOData,
 )
 
 if TYPE_CHECKING:
-    from hornero_event_classifier.core.scene import Scene
+    from hornero_event_classifier.core.video_data import VideoMetadata
 
 
 @dataclass
@@ -252,8 +252,7 @@ class Item:
     sub_id: int = 0
     subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
     ignore: bool = False
-    # TODO: replace with itertools.count
-    _id_distributor: IDDistributor = field(default_factory=IDDistributor)
+    _id_counter: count = field(default_factory=lambda: count(1))
     _boxes: FrameIndexer[BBox] = field(default_factory=FrameIndexer, init=False)
     _cache: FrameCache[BBox] | None = field(default=None, init=False)
 
@@ -358,7 +357,7 @@ class Item:
                     BBox.surround(self, source_boxes)
 
     def _make_child(self) -> Self:
-        child = replace(self, sub_id=self._id_distributor.get_id())
+        child = replace(self, sub_id=next(self._id_counter))
         child.subject = self.subject
         return child
 
@@ -412,8 +411,7 @@ class Item:
 @dataclass
 class Frame:
     frame: int
-    _scene: Scene
-    # frame_shape: tuple[int, int] = (1080, 1920)
+    video_metadata: VideoMetadata
     bboxes: ItemTypedCollection = field(default_factory=ItemTypedCollection, init=False)
 
     def __lt__(self, other: Frame):
@@ -433,15 +431,15 @@ class Frame:
 
     @property
     def frame_shape(self) -> tuple[int, int]:
-        return self._scene.frame_shape
+        return (self.video_metadata.height, self.video_metadata.width)
 
     @property
     def width(self) -> int:
-        return self._scene.frame_shape[1]
+        return self.video_metadata.width
 
     @property
     def height(self) -> int:
-        return self._scene.frame_shape[0]
+        return self.video_metadata.height
 
     @property
     def birds(self) -> Generator[BBox]:

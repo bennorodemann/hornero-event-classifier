@@ -1,7 +1,8 @@
 from pathlib import Path
-from hornero_event_classifier import ThresholdClassifier, Classifier, Metric, pipelines, CONFIG
+from hornero_event_classifier import ThresholdClassifier, Classifier, Metric, tools
 import json
-import os
+
+import pipelines
 
 
 def load_default_classifier() -> Classifier:
@@ -12,9 +13,7 @@ def load_default_classifier() -> Classifier:
     return ThresholdClassifier.from_dict(weights, data["threshold"])
 
 
-def open_vid(video_id: str, frame: int):
-    for file in os.listdir(CONFIG.yolo_path):
-        if file.startswith(video_id):
-            _, scene = pipelines.classify(CONFIG.yolo_path / file, load_default_classifier(), show_progress=False)
-            pipelines.animate(scene, scale=2, frame=frame, auto_play=False)
-            return
+def open_vid(video_metadata: tools.VideoMetadata, frame: int):
+    _, scene = pipelines.classify(video_metadata, load_default_classifier(), show_progress=False)
+    pipelines.animate(scene, scale=2, frame=frame, auto_play=False)
+    return

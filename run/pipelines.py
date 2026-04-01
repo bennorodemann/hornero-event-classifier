@@ -15,7 +15,7 @@ def _no_print(*_, **__) -> None:
 
 
 def classify(
-    file: str | Path,
+    metadata: tools.VideoMetadata,
     classifier: Classifier,
     show_progress: bool = True,
     max_bird_gap: int = 100,
@@ -26,10 +26,11 @@ def classify(
     min_event_len: int = 100,
 ) -> tuple[pd.DataFrame, Scene]:
     print_func = print if show_progress else _no_print
-    file = Path(file)
-    filename: str = file.name
+    # file = Path(file)
+    # filename: str = file.name
+    filename = metadata.name
     print_func(f"{filename}: loading...", end="")
-    s = Scene.from_csv(file)
+    s = Scene.from_metadata(metadata)
     print_func(f"\r\033[K{filename}: pre-processing...", end="")
     s.split_items(filters.make_gap_filter(max_bird_gap), ItemType.BIRD)
     if fill_bird_gaps:
@@ -56,8 +57,8 @@ def animate(
 ):
     if clip and frame and not (clip[0] <= frame <= clip[1]):
         raise ValueError(f"frame ({frame}) needs to be between clip values {clip}")
-    video_path = tools.get_video_path(scene.video_id).exists()
-    if not video_path:
+    video_path = scene.video_data.video_path
+    if not video_path.exists():
         print(f"Video file not found: {video_path}")
         return
     scene.fill_gaps(None, ItemType.EVENT)

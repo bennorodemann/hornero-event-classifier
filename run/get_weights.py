@@ -1,27 +1,29 @@
 from pathlib import Path
-from hornero_event_classifier import CONFIG, pipelines
+from hornero_event_classifier import tools
 from hornero_event_classifier.classifiers import Metric, ThresholdClassifier
-import os
 import pandas as pd
 import sys
 
-CACHE_PATH = Path(CONFIG.data_root / "segment_cache.csv")
+import pipelines
+
+CACHE_PATH = Path("data/segment_cache.csv")
 TEST_METRICS: list[Metric] | None = None
 refresh = len(sys.argv) > 1 and sys.argv[1] in ("reload", "refresh")
 
+metadata_repo: dict[str, tools.VideoMetadata] = tools.read_metadata("data/video_metadata.json")
 segment_dfs: list[pd.DataFrame] = []
 if refresh or CACHE_PATH is None or not CACHE_PATH.exists():
-    for file in os.listdir(CONFIG.yolo_path):
+    for video_metadata in metadata_repo.values():
         classifier = ThresholdClassifier(list(Metric), [1 for _ in Metric])
-        _, scene = pipelines.classify(CONFIG.yolo_path / file, classifier)
+        _, scene = pipelines.classify(video_metadata, classifier)
         if scene.segments is not None:
-            segment_dfs.append(scene.segments.as_df(scene.video_id))
+            segment_dfs.append(scene.segments.as_df(video_metadata.name))
     segment_data: pd.DataFrame = pd.concat(segment_dfs)
     if CACHE_PATH is not None:
         segment_data.to_csv(CACHE_PATH)
 else:
     segment_data = pd.read_csv(CACHE_PATH)
-boris = pd.read_csv(CONFIG.boris_path)
+boris = pd.read_csv("data/DB_BORIS.csv")
 
 (threshold, weights), results = pipelines.recommend_weights(TEST_METRICS, segment_data, boris)
 

@@ -1,26 +1,25 @@
-import pandas as pd
-import numpy as np
+from typing import Any, Callable
+
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, Patch
-from matplotlib.figure import Figure
+import numpy as np
+import pandas as pd
 from matplotlib.axes import Axes
+from matplotlib.backend_bases import Event, MouseButton, MouseEvent
+from matplotlib.figure import Figure
+from matplotlib.patches import Patch, Rectangle
 from matplotlib.text import Annotation
-from matplotlib.backend_bases import MouseButton, Event, MouseEvent
-from hornero_event_classifier.animate.animate import Animator
-from hornero_event_classifier.core.data import ItemType
-from hornero_event_classifier.tools.video import get_video_metadata, VideoMetadata
-from typing import Literal, Any, Callable
-import hornero_event_classifier as hec
+
+from hornero_event_classifier.core import VideoMetadata
 
 
 class VideoBand(Rectangle):
     ALPHA = [0.1, 0.3]
 
-    def __init__(self, video_id: str, xy: tuple[float, float], width: float, height: float, **kwargs) -> None:
-        self.video_id: str = video_id
-        decor = {"fc": "k", "alpha": self.ALPHA[int(xy[1] % 2)]}
+    def __init__(self, metadata: VideoMetadata, y: float, **kwargs) -> None:
+        self.metadata: VideoMetadata = metadata
+        decor = {"fc": "k", "alpha": self.ALPHA[int(y % 2)]}
         decor.update(kwargs)
-        super().__init__(xy, width, height, **decor)
+        super().__init__((0, y), self.metadata.duration_f, 1, **decor)
 
 
 class EventBand(Rectangle):
@@ -88,7 +87,7 @@ class ValidationEventBand(EventBand):
 
 
 class EventPlot:
-    def __init__(self, df: pd.DataFrame) -> None:
+    def __init__(self, metadata_repo: dict[str, VideoMetadata], df: pd.DataFrame) -> None:
         self.plot_type: str = "validation" if "source" in df.columns and "result" in df.columns else "event"
 
         end: int = 0
@@ -101,10 +100,10 @@ class EventPlot:
         self.fig, self.ax = plt.subplots(constrained_layout=True)
         self.videos: list[VideoBand] = []
         for y, v in enumerate(df.video_id.dtype.categories):  # type: ignore
-            metadata: VideoMetadata = get_video_metadata(v)
-            if end <= metadata["duration_f"]:
-                end = metadata["duration_f"]
-            video = VideoBand(v, (0, y), metadata["duration_f"], 1)
+            metadata: VideoMetadata = metadata_repo[v]
+            if end <= metadata.duration_f:
+                end = metadata.duration_f
+            video = VideoBand(metadata_repo[v], y)
             self.ax.add_patch(video)
             self.videos.append(video)
 
@@ -134,14 +133,14 @@ class EventPlot:
         self.annotation: Annotation = self.ax.annotate(
             "", xy=(0, 0), xytext=(10, 10), textcoords="offset points", bbox=dict(boxstyle="round"), visible=False
         )
-        self._open_func: Callable[[str, int], Any] = lambda _, __: _
+        self._open_func: Callable[[VideoMetadata, int], Any] = lambda _, __: _
 
         self.fig.canvas.mpl_connect("button_press_event", self._on_click)
 
     def set_title(self, title: str) -> None:
         self.fig.suptitle(title)
 
-    def set_open_func(self, func: Callable[[str, int], Any]) -> None:
+    def set_open_func(self, func: Callable[[VideoMetadata, int], Any]) -> None:
         self._open_func = func
 
     def show(self):
@@ -155,7 +154,7 @@ class EventPlot:
                 pass
             elif mouse_event.button == MouseButton.LEFT and mouse_event.key == "control":
                 if self.videos[int(mouse_event.ydata)].contains(mouse_event)[0]:
-                    self._open_func(self.videos[int(mouse_event.ydata)].video_id, int(mouse_event.xdata))
+                    self._open_func(self.videos[int(mouse_event.ydata)].metadata, int(mouse_event.xdata))
                     return
             elif mouse_event.button == MouseButton.LEFT and mouse_event.ydata is not None:
                 for event in self.events[int(mouse_event.ydata)]:

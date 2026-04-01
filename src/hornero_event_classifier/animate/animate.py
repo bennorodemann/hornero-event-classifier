@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from threading import Event, Thread, Timer
+from threading import Event, Thread
 from typing import Callable, Optional, SupportsInt, TYPE_CHECKING, Literal
 from pathlib import Path
 import cv2
@@ -10,7 +10,8 @@ import numpy as np
 from hornero_event_classifier.animate.utils import ComplexEvent
 from hornero_event_classifier.core.data import BBox, Frame, ItemType
 from hornero_event_classifier.core.utils import FrameIndexer
-from hornero_event_classifier.tools import get_video_path
+
+# from hornero_event_classifier.tools import get_video_path
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
@@ -334,7 +335,7 @@ class Animator:
         self.scene = scene
         self.open: bool = True
         self.mask = mask
-        self.renderer = Renderer(get_video_path(scene.video_id), out_video, scene.frames, scaler=scale)
+        self.renderer = Renderer(scene.video_data.video_path, out_video, scene.frames, scaler=scale)
         self.rendered_frame = None
         self.min_sleep_time: int = 1  # 33
         self.last_render_time: float = 0
@@ -518,17 +519,17 @@ class Animator:
         if self.state == self.FRAME_JUMP:
             cv2.setWindowTitle(
                 "out",
-                f"{self.scene.video_id} (jump to: {self.text_entry}{", Clipped" if self.clipped else ""}) {self.layers_str}",
+                f"{self.scene.video_data.name} (jump to: {self.text_entry}{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
         elif self.paused:
             cv2.setWindowTitle(
                 "out",
-                f"{self.scene.video_id} (frame: {self.renderer.pos}{", Clipped" if self.clipped else ""}) {self.layers_str}",
+                f"{self.scene.video_data.name} (frame: {self.renderer.pos}{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
         else:
             cv2.setWindowTitle(
                 "out",
-                f"{self.scene.video_id} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
+                f"{self.scene.video_data.name} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
 
     def close(self):

@@ -1,23 +1,27 @@
+from __future__ import annotations
+
 import csv
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Self, Iterable, Optional
-import pandas as pd
 import warnings
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Iterable, Optional, Self
+
+import pandas as pd
 
 from hornero_event_classifier.classifiers import Classifier, SegmentCollection
 from hornero_event_classifier.core.data import BBox, Frame, Item
 from hornero_event_classifier.core.enums import ItemType, Subject
 from hornero_event_classifier.core.filters import FilterFunc, boundary_filter
-from hornero_event_classifier.tools import get_video_metadata, get_video_id
 from hornero_event_classifier.core.utils import (
     DefaultSpawnDict,
     FrameIndexer,
-    YOLOData,
-    type_yolo_data,
     ItemTypedCollection,
     ResultDict,
+    YOLOData,
+    type_yolo_data,
 )
+
+if TYPE_CHECKING:
+    from hornero_event_classifier.core.video_data import VideoMetadata
 
 
 def _item_read_spawner(key: str) -> Item:
@@ -28,24 +32,20 @@ def _item_read_spawner(key: str) -> Item:
 
 @dataclass
 class Scene:
-    video_id: str
-    frame_shape: tuple[int, int]
+    # video_id: str
+    video_data: VideoMetadata
     items: ItemTypedCollection[Item] = field(default_factory=ItemTypedCollection[Item], repr=False)
     frames: FrameIndexer[Frame] = field(default_factory=FrameIndexer, repr=False)
     segments: SegmentCollection | None = field(default=None, repr=False, init=False)
 
     @classmethod
-    def from_csv(cls, filepath: str | Path) -> Self:
-        filepath = Path(filepath)
-        if not filepath.is_file():
-            raise FileNotFoundError(f"file not found: {filepath}")
-        video_id = get_video_id(filepath)
-        metadata = get_video_metadata(video_id)
-        frame_shape = (int(metadata["height"]), int(metadata["width"]))
-        inst = cls(video_id, frame_shape)
+    def from_metadata(cls, metadata: VideoMetadata) -> Self:
+        if not metadata.yolo_path.is_file():
+            raise FileNotFoundError(f"file not found: {metadata.yolo_path}")
+        inst = cls(metadata)
         items: DefaultSpawnDict[str, Item] = DefaultSpawnDict(_item_read_spawner)
-        frames: DefaultSpawnDict[int, Frame] = DefaultSpawnDict(Frame, defaults={"_scene": inst})
-        with open(filepath, "r", encoding="utf-8") as file:
+        frames: DefaultSpawnDict[int, Frame] = DefaultSpawnDict(Frame, defaults={"video_metadata": metadata})
+        with open(metadata.yolo_path, "r", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             for data in reader:
                 typed_row: YOLOData = type_yolo_data(data)
@@ -110,7 +110,7 @@ class Scene:
                     ymax = prev_box.ymax - ((prev_box.ymax - next_box.ymax) * pos)
                     conf = prev_box.conf - ((prev_box.conf - next_box.conf) * pos)
                     if not self.frames.has(frame):
-                        self.frames[frame] = Frame(frame, self)
+                        self.frames[frame] = Frame(frame, self.video_data)
                     frame_obj = self.frames[frame]
                     BBox(
                         frame_obj=frame_obj,
@@ -141,7 +141,7 @@ class Scene:
                 for bbox in parent_bird.boxes[overlap_start:overlap_end]:
                     if child_bird.boxes.has(bbox.frame):
                         overlap_counter += 1
-                        if bbox.overlap_with(child_bird.boxes[bbox.frame]) >= overlap:
+                        if max(bbox.overlap_with(child_bird.boxes[bbox.frame])) >= overlap:
                             correlation_counter += 1
                 frame_count: int
                 if exists_only:
@@ -216,7 +216,7 @@ class Scene:
 
     def _get_result(self, item: Item) -> ResultDict:
         return {
-            "video_id": self.video_id,
+            "video_id": self.video_data.name,
             "subject": item.subject.value,
             "start_frame": item.start,
             "end_frame": item.end,
