@@ -1,20 +1,20 @@
-from pipelines import classify
-from hornero_event_classifier import tools
-
-from utils import load_default_classifier, open_vid
-from os import listdir, remove
 import time
-import pandas as pd
-import numpy as np
-from paths import RESULTS_FILE
+from os import remove
 
+import numpy as np
+import pandas as pd
+from paths import RESULTS_FILE
+from pipelines import classify
+from utils import load_default_classifier, open_vid
+
+from hornero_event_classifier import read_metadata, tools
 
 RESTART_CLASSIFICATION: bool = True
 
 t0 = time.time()
 out: list[pd.DataFrame] = []
 
-metadata_repo = tools.read_metadata("data/video_metadata.json")
+metadata_repo = read_metadata("data/video_metadata.json")
 
 file_exists = RESULTS_FILE.exists()
 if RESTART_CLASSIFICATION and file_exists:

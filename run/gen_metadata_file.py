@@ -1,8 +1,10 @@
 import os
-from typing import Any
 from pathlib import Path
-from hornero_event_classifier.tools import gen_metadata, VideoMetadata, write_metadata
-from paths import METADATA_FILE, YOLO_FOLDER, VIDEOS_ROOT_PATH
+from typing import Any
+
+from paths import METADATA_FILE, VIDEOS_ROOT_PATH, YOLO_FOLDER
+
+from hornero_event_classifier import VideoMetadata, gen_metadata, write_metadata
 
 
 def video_sub_path(video_id: str) -> str:

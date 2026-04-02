@@ -1,3 +1,5 @@
+"""The hornero_event_classifier.core.data module defines the primary data containers used by :py:class:`.Scene`."""
+
 from __future__ import annotations
 
 import math
@@ -12,15 +14,11 @@ from typing import (
 from itertools import count
 
 from hornero_event_classifier.core.enums import ItemType, Subject
-from hornero_event_classifier.core.utils import (
-    FrameCache,
-    FrameIndexer,
-    ItemTypedCollection,
-    YOLOData,
-)
+from hornero_event_classifier.core.collections import FrameCache, FrameIndexer, ItemTypedCollection
+from hornero_event_classifier.core.types import YOLOData
 
 if TYPE_CHECKING:
-    from hornero_event_classifier.core.video_data import VideoMetadata
+    from hornero_event_classifier.core.video_metadata import VideoMetadata
 
 
 @dataclass
@@ -239,7 +237,7 @@ class Item:
     :type type: ItemType
     :param id: The parent ID, generally inherited from YOLO (except for ``Item``\\s of type: :py:attr:`.ItemType.EVENT`).
     :type id: int
-    :param sub_id: A secondary ID which is incremented whenever a ``Item`` is :py:meth:`cut <Item.cut_at>`. Default is ``0``.
+    :param sub_id: A secondary ID which is incremented whenever a ``Item`` makes a child ``Item``. Default is ``0``.
     :type sub_id: int
     :param subject: In the case of ``Item``\\s of type :py:attr:`.ItemType.BIRD` this is where classifications are stored.
         Otherwise this attribute is ignored. Default is :py:attr:`.Subject.NOT_CLASSIFIED`.
@@ -248,7 +246,7 @@ class Item:
     :type ignore: bool"""
 
     type: ItemType
-    id: int
+    id: int  # MAYBE: id could come from count with extra optional yolo_id?
     sub_id: int = 0
     subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
     ignore: bool = False
@@ -300,25 +298,57 @@ class Item:
 
     @classmethod
     def from_str(cls, key: str) -> Self:
+        """Create a new instance using a YOLO ID string.
+
+        :param key: YOLO ID.
+        :type key: str
+        :return: New instance of :py:class:`.ItemType` and :py:attr:`Item.id` described in ``key``.
+        :rtype: Self
+        """
         _, item_type, ids = key.split("-")
         main_id, sub_id = (int(id_) for id_ in ids.split("."))
         return cls(type=ItemType(item_type), id=main_id, sub_id=sub_id)
 
     @classmethod
     def combine(cls, items: Sequence[Self]) -> Self:
+        """Merge several ``Item``\\s into one. If ``Item``\\s have :py:class:`BBox`\\s that share the same frame they are
+        combined using :py:meth:`BBox.surround`. Every ``Item`` in ``items`` will automatically have ``Item.ignore`` set to
+        ``True``.
+
+        The returned instance is a child of the first ``Item`` in ``items``.
+
+        :param items: ``Item``\\s to combine.
+        :type items: Sequence[Self]
+        :return: New instance combining provided ``Item``\\s.
+        :rtype: Self
+        """
+        # pylint: disable=[protected-access]
         new = items[0]._make_child()
-        new._inherit_timeline(items)  # pylint: disable=[protected-access]
+        new._inherit_timeline(items)
         for item in items:
             item.ignore = True
         return new
 
     @classmethod
     def spawn_event(cls, id_: int, source: list[Item]) -> Self:
+        """Create a new ``Item`` of type :py:attr:`.ItemType.EVENT` derived from other ``Item``\\s. :py:class:`BBox`\\s are
+        combined using :py:meth:`BBox.surround`.
+
+        :param id_: ``id`` value of new ``Item`` instance.
+        :type id_: int
+        :param source: ``Item``\\s from which the :py:attr:`.ItemType.EVENT` was derived.
+        :type source: list[Item]
+        :raises ValueError: A ``ValueError`` is raised if ``Item``\\s don't share the same ``subject``.
+        :raises ValueError: A ``ValueError`` is raised if
+            py:attr:`Item.subject == Subject.NOT_CLASSIFIED <.Subject.NOT_CLASSIFIED>`.
+        :return: New instance of type :py:attr:`.ItemType.EVENT`.
+        :rtype: Self
+        """
         ref = source[0]
-        if ref.subject is None:
-            raise ValueError("Items can not have no subject")
         if not all(i.subject == ref.subject for i in source):
             raise ValueError("Not all Items share the same subject")
+        if ref.subject == Subject.NOT_CLASSIFIED:
+            raise ValueError("Items can not have no subject")
         new = cls(type=ItemType.EVENT, id=id_)
         new.subject = ref.subject
         new._inherit_timeline(source)
@@ -326,10 +356,12 @@ class Item:
 
     @property
     def track_len(self) -> int:
+        """The full length of the ``Item`` in frames."""
         return self.end - self.start + 1
 
     @property
     def boxes(self) -> FrameIndexer[BBox]:
+        """Container of associated :py:class:`BBox`\\s."""
         return self._boxes
 
     @property
@@ -339,24 +371,31 @@ class Item:
 
     @property
     def start(self) -> int:
+        """The frame of the first :py:class:`BBox`."""
         return self._boxes.start
 
     @property
     def end(self) -> int:
+        """The frame of the last :py:class:`BBox`."""
         return self._boxes.end
 
     def _inherit_timeline(self, items: Iterable[Item]):
+        # check that all items have the same subject
         if not all(item.subject == self.subject for item in items):
             raise ValueError("Items must have the same subject")
+        # find frame range
         start = min(i.start for i in items)
         end = max(i.end for i in items)
+        # start caching
         with self:
+            # for every frame in range get BBoxes and as long as there are any, get the outer bounding box
             for f in range(start, end + 1):
                 source_boxes = [s.boxes[f] for s in items if s.boxes.has(f)]
                 if len(source_boxes) > 0:
                     BBox.surround(self, source_boxes)
 
     def _make_child(self) -> Self:
+        # new instance with incremented sub_id and inherited subject
         child = replace(self, sub_id=next(self._id_counter))
         child.subject = self.subject
         return child
@@ -372,47 +411,90 @@ class Item:
             self._cache = self._boxes.get_cache()
 
     def release_cache(self):
-        """Release cache and add all cached items to ``Item``"""
+        """Release cache and add all cached items to ``Item``."""
         if self._cache is not None:
             self._cache.release()
             self._cache = None
 
     def add_bbox(self, bbox: BBox):
+        """Attach a :py:class:`BBox` to ``Item`` first adding it to the cache, if currently open, otherwise adding it directly.
+
+        :param bbox: :py:class:`BBox` to attach.
+        :type bbox: BBox
+        :raises ValueError: A ``ValueError`` is raised if the :py:class:`BBox`\\s frame is already occupied in the ``Item``.
+        """
+        # check frame not occupied
         if bbox.frame in self._boxes:
             raise ValueError("Item already has a BBox at specified frame")
+        # check if cache is open
         target = self._cache or self._boxes
-        # target = self._boxes
+        # add to relevant target
         target.include(bbox)
 
-    def destroy(self):
-        self.ignore = True
-        for box in self._boxes.get_all():
-            box.frame_obj.bboxes.remove(box)
-
     def frame_overlap(self, other: Item) -> int:
+        """Calculate the number of frames two ``Item``\\s share. This is calculated using :py:attr:`Item.start` and
+        :py:attr:`Item.end`. Shared frames don't necessarily need to contain :py:class:`BBox`\\s.
+
+        :param other: Other ``Item`` to compare with.
+        :type other: Item
+        :return: Number of shared frames.
+        :rtype: int
+        """
         return max(min(self.end, other.end) - max(self.start, other.start), 0)
 
     def is_ring(self) -> bool:
-        return self.type == ItemType.RING_METAL or self.type == ItemType.RING_PLASTIC
+        """Returns ``True`` if ``Item.type`` is :py:attr:`.ItemType.RING_METAL` or :py:attr:`.ItemType.RING_PLASTIC`. ``False``
+        otherwise."""
+        return self.type in (ItemType.RING_METAL, ItemType.RING_PLASTIC)
 
     def cut_at(self, frame: int) -> Self:
+        """Split ``Item`` in two at specified ``frame``. The original instance instance retains :py:class:`BBox`\\s ``< frame``.
+        Returns a child ``Item`` that inherits :py:class:`BBox`\\s ``>= frame``. (Same rules apply as
+        :py:meth:`.FrameIndexer.cut`)
+
+        :param frame: Frame to cut at.
+        :type frame: int
+        :return: New child ``Item`` instance.
+        :rtype: Self
+        """
         new = self._make_child()
         new._boxes = self._boxes.cut(frame)  # pylint: disable=protected-access
+        # set new parent item of inherited boxes
         for box in new.boxes[:]:
             box.item_obj = new
         return new
 
-    def get_gaps(self, size: int) -> Iterable[tuple[BBox, BBox]]:
+    def get_gaps(self, min_size: int = 1) -> list[tuple[BBox, BBox]]:
+        """Returns :py:class:`BBox` pairs of neighboring :py:class:`BBox`\\s in ``Item`` that are ``>= min_size`` frames apart.
+
+        :param min_size: minimum number of frames that separate the :py:class:`BBox` pairs, defaults to 1
+        :type min_size: int, optional
+        :return: list of neighboring :py:class:`BBox` pairs
+        :rtype: list[tuple[BBox, BBox]]
+        """
         return [
-            (self._boxes[start], self._boxes[stop]) for start, stop in self._boxes.get_frame_steps() if (stop - start) - 1 >= size
+            (self._boxes[start], self._boxes[stop])
+            for start, stop in self._boxes.get_frame_steps()
+            if (stop - start) - 1 >= min_size
         ]
 
 
 @dataclass
 class Frame:
+    """A container class holding all :py:class:`BBox`\\s for a specific frame.
+
+    This class is comparable using ``<``, ``<=``, ``>``, ``>=`` and ``==`` all of which compare :py:attr:`Frame.frame` of both
+    :py:class:`Frame`\\s.
+
+    :param frame: The frame number.
+    :type frame: int
+    :param video_metadata: Video metadata of the video the instance belongs to.
+    :type video_metadata: VideoMetadata
+    """
+
     frame: int
     video_metadata: VideoMetadata
-    bboxes: ItemTypedCollection = field(default_factory=ItemTypedCollection, init=False)
+    _bboxes: ItemTypedCollection = field(default_factory=ItemTypedCollection, init=False)
 
     def __lt__(self, other: Frame):
         return self.frame < other.frame
@@ -431,38 +513,55 @@ class Frame:
 
     @property
     def frame_shape(self) -> tuple[int, int]:
+        """A tuple describing the ``(height, width)`` of the frame in pixels."""
         return (self.video_metadata.height, self.video_metadata.width)
 
     @property
     def width(self) -> int:
+        """
+        The width of the frame in pixels. This is a shortcut for :py:attr:`Frame.video_metadata.width <.VideoMetadata.width>`"""
         return self.video_metadata.width
 
     @property
     def height(self) -> int:
+        """
+        The height of the frame in pixels. This is a shortcut for :py:attr:`Frame.video_metadata.height <.VideoMetadata.height>`
+        """
         return self.video_metadata.height
 
     @property
     def birds(self) -> Generator[BBox]:
-        return self.bboxes.get(ItemType.BIRD)
+        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.BIRD` where
+        :py:attr:`Item.ignore != True <Item>`"""
+        return self._bboxes.get(ItemType.BIRD)
 
     @property
     def rings(self) -> Generator[BBox]:
-        return self.bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC)
+        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.RING_METAL` or
+        :py:attr:`ItemType.RING_PLASTIC` where :py:attr:`Item.ignore != True <Item>`"""
+        return self._bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC)
 
     @property
     def mud(self) -> Generator[BBox]:
-        return self.bboxes.get(ItemType.MUD)
-
-    @property
-    def orphans(self) -> Generator[BBox]:
-        return self.bboxes.get(ignored=True)
+        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.MUD` where
+        :py:attr:`Item.ignore != True <Item>`"""
+        return self._bboxes.get(ItemType.MUD)
 
     @property
     def events(self) -> Generator[BBox]:
-        return self.bboxes.get(ItemType.EVENT)
+        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.EVENT` where
+        :py:attr:`Item.ignore != True <Item>`"""
+        return self._bboxes.get(ItemType.EVENT)
 
-    def has_rings(self) -> bool:
-        return any(True for _ in self.bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC))
+    @property
+    def ignored(self) -> Generator[BBox]:
+        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` where :py:attr:`Item.ignore == True <Item>`"""
+        return self._bboxes.get(ignored=True)
 
     def add_bbox(self, bbox: BBox):
-        self.bboxes.add(bbox)
+        """Add a :py:class:`BBox` to the current Frame.
+
+        :param bbox: The bounding box to add.
+        :type bbox: BBox
+        """
+        self._bboxes.add(bbox)

@@ -150,7 +150,7 @@ class EventPlot:
         if not isinstance(mouse_event, MouseEvent):
             return
         if mouse_event.inaxes == self.ax and mouse_event.xdata is not None and mouse_event.ydata is not None:
-            if not (0 < int(mouse_event.ydata) < len(self.videos)):
+            if not (0 <= int(mouse_event.ydata) < len(self.videos)):
                 pass
             elif mouse_event.button == MouseButton.LEFT and mouse_event.key == "control":
                 if self.videos[int(mouse_event.ydata)].contains(mouse_event)[0]:

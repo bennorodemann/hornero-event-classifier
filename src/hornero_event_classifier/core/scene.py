@@ -11,17 +11,11 @@ from hornero_event_classifier.classifiers import Classifier, SegmentCollection
 from hornero_event_classifier.core.data import BBox, Frame, Item
 from hornero_event_classifier.core.enums import ItemType, Subject
 from hornero_event_classifier.core.filters import FilterFunc, boundary_filter
-from hornero_event_classifier.core.utils import (
-    DefaultSpawnDict,
-    FrameIndexer,
-    ItemTypedCollection,
-    ResultDict,
-    YOLOData,
-    type_yolo_data,
-)
+from hornero_event_classifier.core.collections import DefaultSpawnDict, FrameIndexer, ItemTypedCollection
+from hornero_event_classifier.core.types import ResultDict, YOLOData, type_yolo_data
 
 if TYPE_CHECKING:
-    from hornero_event_classifier.core.video_data import VideoMetadata
+    from hornero_event_classifier.core.video_metadata import VideoMetadata
 
 
 def _item_read_spawner(key: str) -> Item:
@@ -32,7 +26,6 @@ def _item_read_spawner(key: str) -> Item:
 
 @dataclass
 class Scene:
-    # video_id: str
     video_data: VideoMetadata
     items: ItemTypedCollection[Item] = field(default_factory=ItemTypedCollection[Item], repr=False)
     frames: FrameIndexer[Frame] = field(default_factory=FrameIndexer, repr=False)

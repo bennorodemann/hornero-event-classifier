@@ -1,5 +1,5 @@
 from pathlib import Path
-from hornero_event_classifier import tools
+from hornero_event_classifier import VideoMetadata, read_metadata
 from hornero_event_classifier.classifiers import Metric, ThresholdClassifier
 import pandas as pd
 import sys
@@ -10,7 +10,7 @@ CACHE_PATH = Path("data/segment_cache.csv")
 TEST_METRICS: list[Metric] | None = None
 refresh = len(sys.argv) > 1 and sys.argv[1] in ("reload", "refresh")
 
-metadata_repo: dict[str, tools.VideoMetadata] = tools.read_metadata("data/video_metadata.json")
+metadata_repo: dict[str, VideoMetadata] = read_metadata("data/video_metadata.json")
 segment_dfs: list[pd.DataFrame] = []
 if refresh or CACHE_PATH is None or not CACHE_PATH.exists():
     for video_metadata in metadata_repo.values():

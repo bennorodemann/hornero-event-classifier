@@ -5,7 +5,7 @@ from typing import Iterable, Sequence, Self
 import numpy as np
 from numpy.typing import NDArray
 
-from hornero_event_classifier.classifiers.base import Sequence, Classifier
+from hornero_event_classifier.classifiers.base import Classifier
 from hornero_event_classifier.classifiers.metrics import Metric
 
 

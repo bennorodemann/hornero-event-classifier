@@ -1,13 +1,9 @@
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
-import hornero_event_classifier.core.filters as filters
-from hornero_event_classifier import tools
+from hornero_event_classifier import VideoMetadata, ItemType, Scene, tools, filters
 from hornero_event_classifier.animate.animate import Animator
 from hornero_event_classifier.classifiers import Classifier, Metric
-from hornero_event_classifier.core import ItemType, Scene
 
 
 def _no_print(*_, **__) -> None:
@@ -15,7 +11,7 @@ def _no_print(*_, **__) -> None:
 
 
 def classify(
-    metadata: tools.VideoMetadata,
+    metadata: VideoMetadata,
     classifier: Classifier,
     show_progress: bool = True,
     max_bird_gap: int = 100,

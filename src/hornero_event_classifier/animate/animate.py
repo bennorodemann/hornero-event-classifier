@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import time
-from threading import Event, Thread
-from typing import Callable, Optional, SupportsInt, TYPE_CHECKING, Literal
 from pathlib import Path
-import cv2
-import hornero_event_classifier.classifiers.dependencies as ref
-import numpy as np
-from hornero_event_classifier.animate.utils import ComplexEvent
-from hornero_event_classifier.core.data import BBox, Frame, ItemType
-from hornero_event_classifier.core.utils import FrameIndexer
+from threading import Event, Thread
+from typing import TYPE_CHECKING, Callable, Literal, Optional, SupportsInt
 
-# from hornero_event_classifier.tools import get_video_path
+import cv2
+import numpy as np
 from numpy.typing import NDArray
+
+import hornero_event_classifier.classifiers.dependencies as ref
+from hornero_event_classifier.animate.utils import ComplexEvent
+from hornero_event_classifier.core.collections import FrameIndexer
+from hornero_event_classifier.core.data import BBox, Frame, ItemType
 
 if TYPE_CHECKING:
     from hornero_event_classifier.core.scene import Scene
@@ -206,7 +206,7 @@ class Renderer:
 
     def _animate_frame(self, frame: Frame, img: NDArray):
         if self.show_ignored:
-            for old in frame.orphans:
+            for old in frame.ignored:
                 self._animate_bbox(old, img, (0, 0, 255), show_id=False)
         if self.show_birds:
             for bird in frame.birds:
