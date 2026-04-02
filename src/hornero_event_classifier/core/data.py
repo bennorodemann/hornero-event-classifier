@@ -464,18 +464,19 @@ class Item:
             box.item_obj = new
         return new
 
-    def get_gaps(self, min_size: int = 1) -> list[tuple[BBox, BBox]]:
-        """Returns :py:class:`BBox` pairs of neighboring :py:class:`BBox`\\s in ``Item`` that are ``>= min_size`` frames apart.
+    def get_gaps(self, max_gap: int = 1) -> list[tuple[BBox, BBox]]:
+        """Returns :py:class:`BBox` pairs of neighboring :py:class:`BBox`\\s in ``Item`` that have ``>= max_gap`` frames missing
+        between them.
 
-        :param min_size: minimum number of frames that separate the :py:class:`BBox` pairs, defaults to 1
-        :type min_size: int, optional
+        :param max_gap: maximum number of missed frames that separate the :py:class:`BBox` pairs, defaults to 1
+        :type max_gap: int, optional
         :return: list of neighboring :py:class:`BBox` pairs
         :rtype: list[tuple[BBox, BBox]]
         """
         return [
             (self._boxes[start], self._boxes[stop])
             for start, stop in self._boxes.get_frame_steps()
-            if (stop - start) - 1 >= min_size
+            if (stop - start) - 1 >= max_gap
         ]
 
 

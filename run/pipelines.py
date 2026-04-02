@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import time
 
 from hornero_event_classifier import VideoMetadata, ItemType, Scene, tools, filters
 from hornero_event_classifier.animate.animate import Animator
@@ -21,6 +22,7 @@ def classify(
     combine_events_within: int = 120,
     min_event_len: int = 100,
 ) -> tuple[pd.DataFrame, Scene]:
+    t0 = time.time()
     print_func = print if show_progress else _no_print
     # file = Path(file)
     # filename: str = file.name
@@ -39,7 +41,7 @@ def classify(
     s.remove_low_conf(remove_low_conf, ItemType.BIRD)
     print_func(f"\r\033[K{filename}: classifying...", end="")
     s.classify(classifier).define_events(combine_events_within).remove_minor_items(min_event_len, ItemType.EVENT)
-    print_func(f"\r\033[K{filename}: done")
+    print_func(f"\r\033[K{filename}: done ({time.time()-t0:.2f} s)")
     return s.get_results(), s
 
 
