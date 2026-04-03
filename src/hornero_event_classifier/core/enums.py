@@ -17,7 +17,7 @@ class ItemType(StrEnum):
     BEAK_MUD = MUD
     """Alias for :py:attr:`ItemType.MUD`."""
     EVENT = auto()
-    """A detected visitation event detected by classifier."""
+    """An event detected by the classifier."""
     OTHER = auto()
     """Miscellaneous or unclassified item. Value aliases: :code:`"cowbird"`."""
     COWBIRD = OTHER

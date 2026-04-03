@@ -4,7 +4,7 @@ from typing import Callable
 
 from hornero_event_classifier.core.data import BBox
 
-#: Filter type description
+#: Callable signature for filters used by :py:class:`~hornero_event_classifier.core.scene.Scene`.
 type FilterFunc = Callable[[BBox, BBox], bool]
 
 
@@ -25,6 +25,8 @@ def make_gap_filter(gap: int) -> FilterFunc:
 
 def frame_touch_filter(box1: BBox, box2: BBox) -> bool:
     """Check whether either box touches the frame boundary.
+
+    Uses a fixed buffer of 5 pixels.
 
     :param box1: First bounding box.
     :type box1: BBox

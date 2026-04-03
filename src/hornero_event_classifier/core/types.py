@@ -9,9 +9,7 @@ if TYPE_CHECKING:
 
 
 class Comparable(Protocol):
-    """
-    A helper :code:`Protocol` class describing a class that supports :code:`<`, :code:`<=`, :code:`>`, :code:`>=` and :code:`==`
-    """
+    """Protocol for objects that support standard comparison operators."""
 
     def __lt__(self, other: Self) -> bool: ...
     def __le__(self, other: Self) -> bool: ...
@@ -42,11 +40,11 @@ class YOLOData(TypedDict):
 
 
 def type_yolo_data(data: dict[str, str]) -> YOLOData:
-    """Turns a dict of strings from a YOLO csv row into a typed dict following :py:class:`YOLOData`.
+    """Convert a YOLO CSV row dict into a typed :py:class:`YOLOData`.
 
     :param data: YOLO csv row dict
     :type data: dict[str, str]
-    :return: typed dict, following :py:class:`YOLOData`
+    :return: Typed dict following :py:class:`YOLOData`
     :rtype: YOLOData
     """
     return {
@@ -62,7 +60,7 @@ def type_yolo_data(data: dict[str, str]) -> YOLOData:
 
 
 class ResultDict(TypedDict):
-    """A :code:`TypedDict` describing a output result of a classification."""
+    """A :code:`TypedDict` describing an output result of a classification."""
 
     #: source video id
     video_id: str
@@ -77,18 +75,15 @@ class ResultDict(TypedDict):
 
 
 class HasFrame(Protocol):
-    """A helper :code:`Protocol` class describing a class with a :code:`frame` attribute of type :code:`int`"""
+    """Protocol describing a class with a :code:`frame` attribute of type :code:`int`."""
 
     @property
     def frame(self) -> int:  # type: ignore
-        """an integer referring to the object's frame
-
-        :rtype: int
-        """
+        """An integer referring to the object's frame."""
 
 
 class ItemTyped(Protocol):
-    """A :code:`Protocol` describing a class with have a :py:class:`ItemType` and can have an ignored state."""
+    """Protocol describing a class with a :py:class:`ItemType` and an ignore flag."""
 
     #: the type of the item
     type: ItemType

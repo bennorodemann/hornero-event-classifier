@@ -1,4 +1,7 @@
-"""Video metadata extraction and JSON serialization helpers."""
+"""Video metadata extraction and JSON serialization helpers.
+
+This module relies on ``ffmpeg``/``ffprobe`` being available on the system path (via ``ffmpeg-python``).
+"""
 
 from __future__ import annotations
 
@@ -58,6 +61,7 @@ def gen_metadata(data: Iterable[tuple[str | Path, str | Path]]) -> dict[str, Vid
     :return: Mapping of video stem to :py:class:`VideoMetadata`.
     :rtype: dict[str, VideoMetadata]
     :raises FileNotFoundError: If a YOLO or video file path does not exist.
+    :raises ffmpeg.Error: If ``ffprobe`` fails to read video metadata.
     """
     out: dict[str, VideoMetadata] = {}
     for yolo, video in data:

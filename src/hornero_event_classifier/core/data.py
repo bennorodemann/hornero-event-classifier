@@ -1,4 +1,4 @@
-"""The hornero_event_classifier.core.data module defines the primary data containers used by :py:class:`.Scene`."""
+"""Primary data containers used by :py:class:`.Scene` and downstream workflows."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class BBox:
-    """Bounding box ``dataclass`` for a specific frame with references to corresponding :py:class:`Frame` and :py:class:`Item`.
+    """Bounding box ``dataclass`` for a specific frame with references to :py:class:`Frame` and :py:class:`Item`.
 
     This class is comparable using ``<``, ``<=``, ``>``, ``>=`` and ``==`` all of which compare :py:attr:`BBox.frame` of both
     :py:class:`BBox`\\s. It is also hashable.
@@ -32,17 +32,18 @@ class BBox:
     :type frame_obj: Frame
     :param item_obj: Related item object
     :type item_obj: Item
-    :param xmin: Minimum x value (from top of frame)
+    :param xmin: Minimum x value (distance from the left edge)
     :type xmin: float
-    :param xmax: Maximum x value (from top of frame)
+    :param xmax: Maximum x value (distance from the left edge)
     :type xmax: float
-    :param ymin: Minimum y value (from left of frame)
+    :param ymin: Minimum y value (distance from the top edge)
     :type ymin: float
-    :param ymax: Minimum y value (from left of frame)
+    :param ymax: Maximum y value (distance from the top edge)
     :type ymax: float
-    :param conf: YOLOs confidence in bounding box
+    :param conf: YOLO's confidence in the bounding box
     :type conf: float
-    :param real: True if source is from YOLO, False if created by :py:mod:`hornero_event_classifier`
+    :param real: ``True`` if source is from YOLO, ``False`` if interpolated or synthesized by
+        :py:mod:`hornero_event_classifier`
     :type real: bool
     """
 
@@ -84,7 +85,7 @@ class BBox:
 
     @classmethod
     def from_yolo(cls, data: YOLOData, item: Item, frame: Frame) -> Self:
-        """Spawn a new instance from a YOLO csv row dictionary.
+        """Spawn a new instance from a YOLO CSV row dictionary.
 
         :param data: a row from a YOLO csv as a ``dict``
         :type data: YOLOData
@@ -99,13 +100,13 @@ class BBox:
 
     @classmethod
     def surround(cls, item: Item, bboxes: list[BBox] | tuple[BBox, ...]) -> Self:
-        """Create a new instance that surrounds multiple other :py:class:`BBox`\\s that are all in the same frame.
+        """Create a new instance that surrounds multiple other :py:class:`BBox`\\s in the same frame.
 
         :param item: :py:class:`Item` to attach instance to.
         :type item: Item
         :param bboxes: ``BBox``\\s to surround.
         :type bboxes: list[BBox] | tuple[BBox, ...]
-        :raises ValueError: Raises an error not all ``BBox``\\s from ``bboxes`` are from the same frame.
+        :raises ValueError: If not all ``BBox``\\s in ``bboxes`` are from the same frame.
         :return: A new instance.
         :rtype: Self
         """
@@ -171,7 +172,7 @@ class BBox:
         return (self.xmax - self.xmin) * (self.ymax - self.ymin)
 
     def overlap_with(self, other: BBox) -> tuple[float, float]:
-        """Get the percent overlap of two ``BBox``\\es
+        """Get the percent overlap of two ``BBox``\\s.
 
         :param other: Another ``BBox`` to compare against
         :type other: BBox
@@ -190,26 +191,26 @@ class BBox:
         return (0, 0)
 
     def touching_boundary(self, buffer: int) -> bool:
-        """Check if the ``BBox`` is within ``buffer`` frames of the frame boundary.
+        """Check if the ``BBox`` is within ``buffer`` pixels of the frame boundary.
 
         :param buffer: number of pixels from the boundary to accept as "touching".
         :type buffer: int
-        :return: ``True`` if any of the boundaries are within ``buffer`` pixel of the frame border. ``False`` otherwise.
+        :return: ``True`` if any boundary is within ``buffer`` pixels of the frame border. ``False`` otherwise.
         :rtype: bool
         """
         h, w = self.frame_obj.frame_shape
         return self.xmin < buffer or self.xmax > w - buffer or self.ymin < buffer or self.ymax > h - buffer
 
     def distance_to(self, other: BBox) -> float:
-        """Distance (in pixels) between the center point of two ``BBox``\\s"""
+        """Distance (in pixels) between the center point of two ``BBox``\\s."""
         return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
 
     def within(self, other: BBox) -> bool:
-        """Check if the center point of ``other`` is within the boundaries of the current ``BBox``
+        """Check if the center point of this ``BBox`` is within the boundaries of ``other``.
 
         :param other: other ``BBox`` to compare with
         :type other: BBox
-        :return: Returns ``True`` if center point of ``other`` is within current ``BBox``. ``False`` otherwise.
+        :return: Returns ``True`` if this center point is within ``other``. ``False`` otherwise.
         :rtype: bool
         """
         return other.xmin <= self.x <= other.xmax and other.ymin <= self.y <= other.ymax
@@ -222,9 +223,9 @@ class Item:
     This class is comparable using ``<``, ``<=``, ``>``, ``>=`` and ``==`` all of which first compare the ``id`` of both items. If
     both are equal ``sub_id`` is compared. This class is also hashable.
 
-    This class can be entered with the ``with`` command to temporarily cache added :py:class:`BBox`\\s for performance gains (see
-    :py:class:`.FrameCache`). Upon leaving the with statement the cache is automatically released if no errors were raised. This
-    is the same as calling :py:meth:`Item.start_caching` and then :py:meth:`Item.release_cache`.
+    This class can be entered with the ``with`` command to temporarily cache added :py:class:`BBox`\\s for performance gains
+    (see :py:class:`.FrameCache`). Upon leaving the ``with`` statement, the cache is automatically released if no errors were
+    raised. This is the same as calling :py:meth:`Item.start_caching` and then :py:meth:`Item.release_cache`.
 
     .. code-block:: python3
 
@@ -237,12 +238,12 @@ class Item:
     :type type: ItemType
     :param id: The parent ID, generally inherited from YOLO (except for ``Item``\\s of type: :py:attr:`.ItemType.EVENT`).
     :type id: int
-    :param sub_id: A secondary ID which is incremented whenever a ``Item`` makes a child ``Item``. Default is ``0``.
+    :param sub_id: A secondary ID which is incremented whenever an ``Item`` makes a child ``Item``. Default is ``0``.
     :type sub_id: int
     :param subject: In the case of ``Item``\\s of type :py:attr:`.ItemType.BIRD` this is where classifications are stored.
         Otherwise this attribute is ignored. Default is :py:attr:`.Subject.NOT_CLASSIFIED`.
     :type subject: Subject
-    :param ignore: A attribute that indicates if the ``Item`` should be ignored in future calculations.
+    :param ignore: An attribute that indicates if the ``Item`` should be ignored in future calculations.
     :type ignore: bool"""
 
     type: ItemType
@@ -302,7 +303,7 @@ class Item:
 
         :param key: YOLO ID.
         :type key: str
-        :return: New instance of :py:class:`.ItemType` and :py:attr:`Item.id` described in ``key``.
+        :return: New instance described by ``key``.
         :rtype: Self
         """
         _, item_type, ids = key.split("-")
@@ -338,9 +339,8 @@ class Item:
         :type id_: int
         :param source: ``Item``\\s from which the :py:attr:`.ItemType.EVENT` was derived.
         :type source: list[Item]
-        :raises ValueError: A ``ValueError`` is raised if ``Item``\\s don't share the same ``subject``.
-        :raises ValueError: A ``ValueError`` is raised if
-            py:attr:`Item.subject == Subject.NOT_CLASSIFIED <.Subject.NOT_CLASSIFIED>`.
+        :raises ValueError: If ``Item``\\s don't share the same ``subject``.
+        :raises ValueError: If :py:attr:`Item.subject` is :py:attr:`.Subject.NOT_CLASSIFIED`.
         :return: New instance of type :py:attr:`.ItemType.EVENT`.
         :rtype: Self
         """
@@ -348,7 +348,7 @@ class Item:
         if not all(i.subject == ref.subject for i in source):
             raise ValueError("Not all Items share the same subject")
         if ref.subject == Subject.NOT_CLASSIFIED:
-            raise ValueError("Items can not have no subject")
+            raise ValueError("Items must have a subject")
         new = cls(type=ItemType.EVENT, id=id_)
         new.subject = ref.subject
         new._inherit_timeline(source)
@@ -356,7 +356,7 @@ class Item:
 
     @property
     def track_len(self) -> int:
-        """The full length of the ``Item`` in frames."""
+        """Inclusive frame span of the ``Item`` (may include gaps)."""
         return self.end - self.start + 1
 
     @property
@@ -448,7 +448,7 @@ class Item:
         return self.type in (ItemType.RING_METAL, ItemType.RING_PLASTIC)
 
     def cut_at(self, frame: int) -> Self:
-        """Split ``Item`` in two at specified ``frame``. The original instance instance retains :py:class:`BBox`\\s ``< frame``.
+        """Split ``Item`` in two at specified ``frame``. The original instance retains :py:class:`BBox`\\s ``< frame``.
         Returns a child ``Item`` that inherits :py:class:`BBox`\\s ``>= frame``. (Same rules apply as
         :py:meth:`.FrameIndexer.cut`)
 
@@ -519,44 +519,42 @@ class Frame:
 
     @property
     def width(self) -> int:
-        """
-        The width of the frame in pixels. This is a shortcut for :py:attr:`Frame.video_metadata.width <.VideoMetadata.width>`"""
+        """The width of the frame in pixels. Shortcut for :py:attr:`.VideoMetadata.width`."""
         return self.video_metadata.width
 
     @property
     def height(self) -> int:
-        """
-        The height of the frame in pixels. This is a shortcut for :py:attr:`Frame.video_metadata.height <.VideoMetadata.height>`
-        """
+        """The height of the frame in pixels. Shortcut for :py:attr:`.VideoMetadata.height`."""
         return self.video_metadata.height
 
     @property
     def birds(self) -> Generator[BBox]:
         """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.BIRD` where
-        :py:attr:`Item.ignore != True <Item>`"""
+        :py:attr:`Item.ignore is False <Item.ignore>`."""
         return self._bboxes.get(ItemType.BIRD)
 
     @property
     def rings(self) -> Generator[BBox]:
         """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.RING_METAL` or
-        :py:attr:`ItemType.RING_PLASTIC` where :py:attr:`Item.ignore != True <Item>`"""
+        :py:attr:`ItemType.RING_PLASTIC` where :py:attr:`Item.ignore is False <Item.ignore>`."""
         return self._bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC)
 
     @property
     def mud(self) -> Generator[BBox]:
         """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.MUD` where
-        :py:attr:`Item.ignore != True <Item>`"""
+        :py:attr:`Item.ignore is False <Item.ignore>`."""
         return self._bboxes.get(ItemType.MUD)
 
     @property
     def events(self) -> Generator[BBox]:
         """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.EVENT` where
-        :py:attr:`Item.ignore != True <Item>`"""
+        :py:attr:`Item.ignore is False <Item.ignore>`."""
         return self._bboxes.get(ItemType.EVENT)
 
     @property
     def ignored(self) -> Generator[BBox]:
-        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` where :py:attr:`Item.ignore == True <Item>`"""
+        """
+        A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` where :py:attr:`Item.ignore is True <Item.ignore>`."""
         return self._bboxes.get(ignored=True)
 
     def add_bbox(self, bbox: BBox):

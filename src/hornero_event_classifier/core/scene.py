@@ -57,10 +57,10 @@ class Scene:
     - the :py:class:`.VideoMetadata` for the video,
     - a collection of :py:class:`.Item` objects,
     - a frame index of :py:class:`.Frame` objects,
-    - and classification :py:class:`SegmentCollection` data, which starts as None and is set once :py:meth:`Scene.classify` is
-        called.
+    - and classification :py:class:`SegmentCollection` data, which starts as ``None`` and is set once
+      :py:meth:`Scene.classify` is called.
 
-    Most class methods return the current ``Scene`` object, allowing for method chaining:
+    Most methods return the current ``Scene`` object, allowing for method chaining:
     .. code-block:: python3
 
         results = (
@@ -82,9 +82,9 @@ class Scene:
 
     @classmethod
     def from_metadata(cls, metadata: VideoMetadata) -> Self:
-        """The primary ``Scene`` constructor method.
+        """Primary ``Scene`` constructor.
 
-        :param metadata: Source videos :py:class:`.VideoMetadata` object.
+        :param metadata: Source video's :py:class:`.VideoMetadata` object.
         :type metadata: VideoMetadata
         :raises FileNotFoundError: Raise an error if :py:attr:`.VideoMetadata.yolo_path` could not be found.
         :return: Loaded instance of video YOLO data.
@@ -94,7 +94,7 @@ class Scene:
             raise FileNotFoundError(f"file not found: {metadata.yolo_path}")
         # create instance
         inst = cls(metadata)
-        # dicts auto auto spawn new instances of objects if missing
+        # dicts auto-spawn new instances of objects if missing
         items: DefaultSpawnDict[str, Item] = DefaultSpawnDict(_item_read_spawner)
         frames: DefaultSpawnDict[int, Frame] = DefaultSpawnDict(Frame, defaults={"video_metadata": metadata})
         # read csv file
@@ -103,7 +103,7 @@ class Scene:
             for data in reader:
                 # convert string values to correct types
                 typed_row: YOLOData = type_yolo_data(data)
-                # spawn new box (auto attaches to corresponding item and frame objects)
+                # spawn new box (auto-attaches to corresponding item and frame objects)
                 BBox.from_yolo(typed_row, items[typed_row["ID"]], frames[typed_row["Frame"]])
         # release bbox cache of all items
         for item in items.values():
@@ -114,15 +114,16 @@ class Scene:
         return inst
 
     def remove_low_conf(self, threshold: float, *item_types: ItemType) -> Self:
-        """Sets ``Item.ignore = True`` for :py:class:`.Item`\\s of types in ``item_types`` with a confidence less than
-        ``threshold``. Item confidence is calculated using the average :py:class:`BBox` confidence.
+        """Mark low-confidence items as ignored.
+
+        Sets ``Item.ignore = True`` for :py:class:`.Item`\\s of types in ``item_types`` whose average
+        :py:class:`BBox` confidence is below ``threshold``. If no ``item_types`` are provided, all types are included.
 
         :param threshold: Minimum threshold of :py:class:`.Item` to keep in scene.
         :type threshold: float
-        :param item_types: one or more :py:class:`.ItemType`\\s to be filter out. If no values are passed then all
-            :py:class:`.ItemType`\\s are included.
+        :param item_types: One or more :py:class:`.ItemType`\\s to filter. If none are passed, all types are included.
         :type item_types: ItemType
-        :return: :py:class:`Scene` instance returns itself
+        :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
         # per item of item types in item_types
@@ -136,29 +137,29 @@ class Scene:
         return self
 
     def _combine_filters(self, funcs: tuple[FilterFunc, ...]) -> FilterFunc:
-        # return a function that ensures all funcs return true
+        # return a function that ensures all funcs return True
         def combo_filter(box1: BBox, box2: BBox) -> bool:
             return all(func(box1, box2) for func in funcs)
 
         return combo_filter
 
     def split_items(self, filter_func: FilterFunc | Iterable[FilterFunc], *item_types: ItemType) -> Self:
-        """Compares :py:class:`.Item` :py:class:`.BBox`\\s with ``filter_func`` and splits if True. This is only applied to
-        :py:class:`.Item`\\s of :py:class:`.ItemType`\\s in ``item_types`` (if none are passed then all :py:class:`.ItemType`\\s
-        are included).
+        """Split items when consecutive :py:class:`.BBox`\\s match a filter.
+
+        This is only applied to :py:class:`.Item`\\s of :py:class:`.ItemType`\\s in ``item_types`` (if none are passed then all
+        :py:class:`.ItemType`\\s are included).
 
         This method applies ``filter_func`` to each pair of consecutive :py:class:`.BBox` pairs in an :py:class:`.Item`. If
-        ``filter_func`` returns ``True`` the :py:class:`.Item` is cut at that point.
+        ``filter_func`` returns ``True`` the :py:class:`.Item` is cut at that point, producing a new child :py:class:`.Item`.
 
-        :param filter_func: Filter functions to apply. If multiple are passed then they are combined in an ``and`` wise manner.
+        :param filter_func: Filter function(s) to apply. If multiple are passed then they are combined in a logical AND.
         :type filter_func: FilterFunc | Iterable[FilterFunc]
-        :param item_types: one or more :py:class:`.ItemType`\\s to be filter out. If no values are passed then all
-            :py:class:`.ItemType`\\s are included.
+        :param item_types: One or more :py:class:`.ItemType`\\s to filter. If none are passed, all types are included.
         :type item_types: ItemType
-        :return: :py:class:`Scene` instance returns itself
+        :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
-        # if there are multiple filter functions, combine them into a single function (and wise)
+        # if there are multiple filter functions, combine them into a single function (AND-wise)
         if isinstance(filter_func, Iterable):
             filter_func = self._combine_filters(tuple(filter_func))
         # for every item of type in item_types
@@ -167,10 +168,10 @@ class Scene:
             data: list[BBox] = list(item.boxes.get_all())
             # compare sequential bboxes
             for prev_box, next_box in zip(data, data[1:]):
-                # if filter func returns true, log that item should be cut at next_box.frame
+                # if filter func returns True, log that item should be cut at next_box.frame
                 if filter_func(prev_box, next_box):
                     cut_frames.append(next_box.frame)
-            # for all logged cut frames: cut at frame, make sure item id does not exits (debugging step), add item to scene items
+            # for all logged cut frames: cut at frame, ensure item ID is new (debugging), add item to scene items
             for cut_frame in cut_frames:
                 item = item.cut_at(cut_frame)
                 assert item not in self.items
@@ -178,30 +179,33 @@ class Scene:
         return self
 
     def fill_gaps(self, filter_func: Optional[FilterFunc | Iterable[FilterFunc]], *item_types: ItemType) -> Self:
-        """Compares :py:class:`.Item` :py:class:`.BBox`\\s with ``filter_func`` and fill missing frames where ``True``. This is
-        only applied to :py:class:`.Item`\\s of :py:class:`.ItemType`\\s in ``item_types`` (if none are passed then all
+        """Fill missing frames with interpolated :py:class:`BBox`\\s.
+
+        This is only applied to :py:class:`.Item`\\s of :py:class:`.ItemType`\\s in ``item_types`` (if none are passed then all
         :py:class:`.ItemType`\\s are included).
 
         This method applies ``filter_func`` to each pair of consecutive :py:class:`.BBox` pairs separated by 1 or more missing
-        frames in an :py:class:`.Item`. If ``filter_funcs`` return ``True``, missing frame a filled with linearly interpolated
-        :py:class:`BBox`\\s.
+        frames in an :py:class:`.Item`. If ``filter_func`` returns ``True``, missing frames are filled with linearly
+        interpolated :py:class:`BBox`\\s.
 
-        :param filter_func: Filter functions to apply.
-            - If multiple are passed then they are combined in an ``and`` wise manner.
-            - If ``None`` all gaps are filled
+        :param filter_func: Filter function(s) to apply.
+            - If multiple are passed then they are combined in a logical AND.
+            - If ``None`` all gaps are filled.
         :type filter_func: Optional[FilterFunc  |  Iterable[FilterFunc]]
-        :return: :py:class:`Scene` instance returns itself
+        :param item_types: One or more :py:class:`.ItemType`\\s to filter. If none are passed, all types are included.
+        :type item_types: ItemType
+        :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
         # if none set to empty tuple (will be passed to self._combine_filters and always return True)
         filter_func = filter_func or ()
-        # if there are multiple filter functions, combine them into a single function (and wise)
+        # if there are multiple filter functions, combine them into a single function (AND-wise)
         if isinstance(filter_func, Iterable):
             filter_func = self._combine_filters(tuple(filter_func))
         # for every item of type in item_types
         frame_cache = self.frames.get_cache()
         for item in self.items.get(*item_types):
-            # for bbox pairs that have any missing frames between them within a item
+            # for bbox pairs that have any missing frames between them within an item
             for prev_box, next_box in item.get_gaps(1):
                 assert prev_box.frame < next_box.frame  # debug step: make sure order is correct
                 # if filter is False skip to next bbox pair
@@ -248,7 +252,7 @@ class Scene:
         return self
 
     def _merge_birds(self, overlap: float, correlation: float, exists_only: bool = False) -> Self:
-        # TODO: This method is current outdated/deprecated and can to be reworked to follow the filter system if there is time
+        # TODO: This method is currently outdated/deprecated and should be reworked to follow the filter system.
         warnings.warn("Scene.merge_birds is no longer being developed and may lead to unexpected behavior")
         birds: list[Item] = sorted(self.items.get(ItemType.BIRD), key=lambda i: i.start)
         overlaps: dict[Item, set[Item]] = {}
@@ -295,14 +299,15 @@ class Scene:
         return self
 
     def remove_minor_items(self, min_size: int, *item_types: ItemType) -> Self:
-        """Sets ``Item.ignore = True`` for :py:class:`.Item`\\s of types in ``item_types`` if ``len(Item) < min_size``.
+        """Mark short items as ignored.
+
+        Sets ``Item.ignore = True`` for :py:class:`.Item`\\s of types in ``item_types`` if ``len(Item) < min_size``.
 
         :param min_size: Minimum length of :py:class:`.Item` to retain
         :type min_size: int
-        :param item_types: one or more :py:class:`.ItemType`\\s to be filter out. If no values are passed then all
-            :py:class:`.ItemType`\\s are included.
+        :param item_types: One or more :py:class:`.ItemType`\\s to filter. If none are passed, all types are included.
         :type item_types: ItemType
-        :return: :py:class:`Scene` instance returns itself
+        :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
         for item in list(self.items.get(*item_types)):
@@ -317,7 +322,7 @@ class Scene:
         :type classifier: Classifier
         :param segment_length: :py:class:`.SegmentCollection` ``segment_length`` argument, defaults to None
         :type segment_length: Optional[int], optional
-        :return: :py:class:`Scene` instance returns itself
+        :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
         # create segments from bird items
@@ -340,9 +345,9 @@ class Scene:
     def define_events(self, buffer: int = 0) -> Self:
         """Create events from classified :py:attr:`.ItemType.BIRD` :py:class:`.Item`\\s.
 
-        :param buffer: number of frame within which to merge :py:class:`.Item`\\s with the same classification, defaults to 0
+        :param buffer: Number of frames within which to merge :py:class:`.Item`\\s with the same classification, defaults to 0.
         :type buffer: int, optional
-        :return: :py:class:`Scene` instance returns itself
+        :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
         cache: list[list[Item]] = []
@@ -389,8 +394,9 @@ class Scene:
         }
 
     def get_results(self) -> pd.DataFrame:
-        """Generates a ``pandas.DataFrame`` from created :py:attr:`.ItemType.Event` :py:class:`.Item`\\s that mimics the column
-        layout from BORIS.
+        """Generate a ``pandas.DataFrame`` from created :py:attr:`.ItemType.Event` :py:class:`.Item`\\s.
+
+        The output mimics the column layout from BORIS.
 
         Columns:
             - video_id: video name string
@@ -399,18 +405,18 @@ class Scene:
             - end_frame: last frame in event
             - mud: always ``False``
 
-        :return: Dataframe of found events
+        :return: Dataframe of found events.
         :rtype: pd.DataFrame
         """
         events = list(self.items.get(ItemType.EVENT))
         return pd.DataFrame([self._get_result(event) for event in events])
 
     def write_to_csv(self, file_path: str | Path) -> Self:
-        """Write dataframe from :py:meth:`Scene.get_results` directly to a csv file.
+        """Write dataframe from :py:meth:`Scene.get_results` directly to a CSV file.
 
         :param file_path: Path to csv file.
         :type file_path: str | Path
-        :return: :py:class:`Scene` instance returns itself
+        :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
         results = self.get_results()

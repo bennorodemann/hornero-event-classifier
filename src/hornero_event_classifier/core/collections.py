@@ -177,14 +177,14 @@ class FrameIndexer[T: HasFrame]:
         self._refresh_range()
 
     def get[G](self, frame: int, default: G) -> T | G:
-        """Return the object at the specified frame. If the frame does not exist, default is returned.
+        """Return the object at the specified frame. If the frame does not exist, ``default`` is returned.
 
         :param frame: frame number
         :type frame: int
         :param default: default value to return if no object is found
         :type default: Any
-        :return: The object at the specified frame number if it exists. Otherwise, default is returned.
-        :rtype: _type_
+        :return: The object at the specified frame number if it exists. Otherwise, ``default`` is returned.
+        :rtype: T | G
         """
         return self._data.get(frame, default)
 
@@ -198,7 +198,7 @@ class FrameIndexer[T: HasFrame]:
         return ((k1, k2) for k1, k2 in zip(self._data.keys(), self._data.keys()[1:]))
 
     def get_all(self) -> Iterable[T]:
-        """Returns all values in order
+        """Return all values in order.
 
         :return: all values in order
         :rtype: Iterable[T]
@@ -221,7 +221,7 @@ class FrameIndexer[T: HasFrame]:
         return type(self)._spawn_with_items(items[index:])
 
     def has(self, frame: int) -> bool:
-        """Check if :py:class:`FrameIndexer` contains a object at a specific frame
+        """Check if :py:class:`FrameIndexer` contains an object at a specific frame.
 
         :param frame: The frame number to check
         :type frame: int
@@ -231,7 +231,7 @@ class FrameIndexer[T: HasFrame]:
         return frame in self._data
 
     def is_continues(self) -> bool:
-        """Check if are no missing frames between the minimum and maximum frame object
+        """Check whether there are no missing frames between the minimum and maximum frames.
 
         :return: returns :code:`True` if there are no gaps. Otherwise return :code:`False`
         :rtype: bool
@@ -239,7 +239,7 @@ class FrameIndexer[T: HasFrame]:
         return all(d == 1 for d in np.diff(self._data.keys()))
 
     def get_missing(self) -> list[int]:
-        """Get all missing frames between the minimum and maximum frame object
+        """Get all missing frames between the minimum and maximum frames.
 
         :return: list of frame numbers which do not exist in the :py:class:`FrameIndexer` instance
         :rtype: list[int]
@@ -247,8 +247,9 @@ class FrameIndexer[T: HasFrame]:
         return [v for v in range(self.start, self.end + 1) if v not in self._data]
 
     def validate(self):
-        """Double check that all frame number indexes correspond to the saved object. This is for debugging purposes and does not
-        need to be used by users
+        """Double check that all frame number indexes correspond to the saved object.
+
+        This is for debugging purposes and does not need to be used by users.
         """
         assert all(k == v.frame for k, v in self._data.items())
 
@@ -262,9 +263,11 @@ class FrameIndexer[T: HasFrame]:
 
 
 class FrameCache[T: HasFrame]:
-    """A class temporarily holds objects before passing them to a :py:class:`FrameIndexer`. This class helps with optimization
-    as :py:class:`FrameIndexer` needs to sort everything ever time an object is added. This class can be entered using the
-    :code:`with` statement which at exit will automatically call :py:meth:`FrameCache.release` if not error occurred
+    """This class temporarily holds objects before passing them to a :py:class:`FrameIndexer`.
+
+    This class helps with optimization as :py:class:`FrameIndexer` needs to sort everything every time an object is added.
+    This class can be entered using the :code:`with` statement which at exit will automatically call
+    :py:meth:`FrameCache.release` if no error occurred.
 
     :param parent: a :py:class:`FrameIndexer` instance to pass held objects to on release
     :type parent: FrameIndexer
@@ -359,15 +362,16 @@ class ItemTypedCollection[T: ItemTyped]:
         self._data[obj.type].discard(obj)
 
     def get(self, *item_types: ItemType, ignored: bool | None = False) -> Generator[T]:
-        """get a generator of items of all types passed to :code:`item_types` (or all types if none are passed)
+        """Return a generator of items of the specified types.
 
-        :param item_types: _description_
+        If no ``item_types`` are provided, all types are included.
+
+        :param item_types: One or more :py:class:`ItemType` values to include.
         :type item_types: ItemType
-        :param ignored: If :code:`False` (the default), only objects where :code:`obj.ignore == False` are returned. If
-            :code:`True`, only objects where :code:`obj.ignore == False` are returned. If :code:`None` both ignore and non-ignore
-            objects are returned.
+        :param ignored: If ``False`` (the default), only objects where ``obj.ignore is False`` are returned. If ``True``,
+            only objects where ``obj.ignore is True`` are returned. If ``None``, both ignore and non-ignore objects are returned.
         :type ignored: bool | None, optional
-        :return: Returns a :code:`Generator` of objects following the filtering arguments.
+        :return: Generator of objects following the filtering arguments.
         :rtype: Generator[T]
         """
         filter_func = self._filter_funcs[ignored]
