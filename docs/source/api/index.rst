@@ -7,10 +7,6 @@ High-level entry point for API documentation.
    :maxdepth: 2
    :caption: API Reference
 
-   core/index
-   classifiers/index
-
-.. toctree::
-   :maxdepth: 1
-
-   
+   core
+   classifiers
+   tools

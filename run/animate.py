@@ -7,4 +7,4 @@ import hornero_event_classifier as hec
 TARGET_VIDEO: str = "n10_d4_c1_1_cl2"
 metadata_repo = hec.read_metadata(METADATA_FILE)
 _, scene = classify(metadata_repo[TARGET_VIDEO], load_default_classifier())
-animate(scene)
+animate(scene, scale=2)  # , out_video="/home/bennor/Videos/test.mp4")

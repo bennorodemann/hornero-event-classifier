@@ -14,8 +14,8 @@ Example
     scene = Scene.from_metadata(metadata)
     scene.remove_low_conf(0.2)
     scene.fill_gaps(None)
-    # scene.classify(classifier)
-    # results = scene.get_results()
+    scene.classify(...)
+    results = scene.get_results()
 """
 
 from __future__ import annotations
@@ -54,14 +54,15 @@ class Scene:
     """Container for all data and processing steps for a single video.
 
     A ``Scene`` holds:
-    - the :py:class:`.VideoMetadata` for the video,
-    - a collection of :py:class:`.Item` objects,
-    - a frame index of :py:class:`.Frame` objects,
-    - and classification :py:class:`SegmentCollection` data, which starts as ``None`` and is set once
-      :py:meth:`Scene.classify` is called.
+        - the :py:class:`.VideoMetadata` for the video,
+        - a collection of :py:class:`.Item` objects,
+        - a frame index of :py:class:`.Frame` objects,
+        - and classification :py:class:`.SegmentCollection` data, which starts as ``None`` and is set once \
+            :py:meth:`Scene.classify` is called.
 
     Most methods return the current ``Scene`` object, allowing for method chaining:
-    .. code-block:: python3
+
+    .. code-block:: python
 
         results = (
             Scene.from_metadata(...)
@@ -188,9 +189,8 @@ class Scene:
         frames in an :py:class:`.Item`. If ``filter_func`` returns ``True``, missing frames are filled with linearly
         interpolated :py:class:`BBox`\\s.
 
-        :param filter_func: Filter function(s) to apply.
-            - If multiple are passed then they are combined in a logical AND.
-            - If ``None`` all gaps are filled.
+        :param filter_func: Filter function(s) to apply. If multiple are passed then they are combined in a logical AND. If
+            ``None`` all gaps are filled.
         :type filter_func: Optional[FilterFunc  |  Iterable[FilterFunc]]
         :param item_types: One or more :py:class:`.ItemType`\\s to filter. If none are passed, all types are included.
         :type item_types: ItemType

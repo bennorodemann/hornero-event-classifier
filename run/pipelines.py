@@ -3,7 +3,7 @@ import pandas as pd
 import time
 
 from hornero_event_classifier import VideoMetadata, ItemType, Scene, tools, filters
-from hornero_event_classifier.animate.animate import Animator
+from hornero_event_classifier.tools.animate import Animator
 from hornero_event_classifier.classifiers import Classifier, Metric
 
 

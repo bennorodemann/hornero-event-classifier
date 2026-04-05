@@ -8,6 +8,8 @@ Hornero Event Classifier documentation
 
 Welcome to the Hornero Event Classifier documentation.
 
+Documentation version: |release|
+
 
 .. toctree::
    :maxdepth: 2
