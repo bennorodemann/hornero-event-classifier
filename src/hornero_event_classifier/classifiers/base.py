@@ -235,7 +235,15 @@ class SegmentCollection:
         return self.data[self.item_groups[key]]
 
     def as_df(self, video_id: str):
-        """Return a pandas DataFrame summary of all segments. (For debugging purposes)"""
+        """Return a pandas DataFrame summary of all segments (primarily for debugging).
+
+        Columns:
+            - video_id: video name string
+            - item_id: item key (``cam-<type>-<id>.<sub_id>``)
+            - start_frame: first frame in segment
+            - end_frame: last frame in segment
+            - one column per metric name (from :py:attr:`SegmentCollection.metrics`)
+        """
         data = [seg.as_dict() for seg in self.segments]
         df = pd.DataFrame(data)
         df.insert(0, "video_id", video_id)

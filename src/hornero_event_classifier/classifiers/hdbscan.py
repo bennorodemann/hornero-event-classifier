@@ -1,3 +1,8 @@
+"""Experimental HDBSCAN-based classifier prototype.
+
+This module currently provides a placeholder :py:class:`HDBSCANClassifier` and retains exploratory analysis code in comments.
+"""
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -7,7 +12,12 @@ from sklearn.feature_selection import mutual_info_classif
 from sklearn.preprocessing import StandardScaler
 
 
-class HDBSCANClassifier(KMeanClassifier): ...
+class HDBSCANClassifier(KMeanClassifier):
+    """Placeholder HDBSCAN classifier.
+
+    Currently inherits :py:class:`KMeanClassifier` behavior and serves as a stub for future development.
+    """
+    ...
 
 
 # def _initiate(self):

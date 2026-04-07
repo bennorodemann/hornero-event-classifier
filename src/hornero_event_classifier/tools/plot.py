@@ -1,3 +1,8 @@
+"""Plotting utilities for event timelines and validation results.
+
+This module focuses on visual inspection tools for internal workflows.
+"""
+
 from __future__ import annotations
 from typing import Any, Callable, Optional, Type
 
@@ -16,13 +21,13 @@ from hornero_event_classifier.core import VideoMetadata
 class VideoBand(Rectangle):
     """A ``matplotlib.patches.Rectangle`` subclass that holds video metadata for interactivity purposes.
 
-    The length of the rectangle is equal to :py:attr:`.VideoMetadata.duration_f` and it's height is always 1.
+    The length of the rectangle is equal to :py:attr:`.VideoMetadata.duration_f` and its height is always 1.
 
     :param metadata: video metadata
     :type metadata: VideoMetadata
     :param y: y position of ``VideoBand``
     :type y: float
-    :param kwargs: ``matplotlib.patches.Rectangle`` ascetic passthrough arguments
+    :param kwargs: ``matplotlib.patches.Rectangle`` aesthetic passthrough arguments
     :type kwargs: Any
     """
 
@@ -42,14 +47,13 @@ class VideoBand(Rectangle):
 
 
 class EventBand(Rectangle):
-    """A ``matplotlib.patches.Rectangle`` subclass that holds specific event data and automatically applies applies ascetics base
-    on event parameters.
+    """A ``matplotlib.patches.Rectangle`` subclass that holds event data and applies aesthetics based on event parameters.
 
     This class works with the data from :py:meth:`.Scene.get_results`.
 
     :param data: a row from a ``pandas.DataFrame`` containing event data
     :type data: pd.Series
-    :param kwargs: ``matplotlib.patches.Rectangle`` ascetic passthrough arguments
+    :param kwargs: ``matplotlib.patches.Rectangle`` aesthetic passthrough arguments
     :type kwargs: Any
     """
 
@@ -60,7 +64,7 @@ class EventBand(Rectangle):
         "ring": "#2c7bb6",
         "no_ring": "#5eaec9",
     }
-    #: ascetic naming info for legends
+    #: Aesthetic naming info for legends
     LEGEND_DATA: list[Patch] = [
         Patch(fc=FC["ring"], label="ring"),
         Patch(fc=FC["no_ring"], label="no_ring"),
@@ -88,13 +92,13 @@ class EventBand(Rectangle):
 
 
 class ValidationEventBand(EventBand):
-    """A ``EventBand`` subclass with ascetics specific for event validation plots.
+    """A ``EventBand`` subclass with aesthetics specific for event validation plots.
 
-    This class works with the data from :py:func:`.validate_events.grade_events`.
+    This class works with the data from :py:func:`.validate_events.validate_events`.
 
     :param data: a row from a ``pandas.DataFrame`` containing validated event data
     :type data: pd.Series
-    :param kwargs: ``matplotlib.patches.Rectangle`` ascetic passthrough arguments
+    :param kwargs: ``matplotlib.patches.Rectangle`` aesthetic passthrough arguments
     :type kwargs: Any
     """
 
@@ -135,18 +139,20 @@ class ValidationEventBand(EventBand):
 
 
 class EventInteractor:
-    """This class holds relevant data and functions relevant for interactivity in the event plots (:py:func:`event_plot` and
-    :py:func:`event_validation_plot`)
+    """Holds state and callbacks for interactivity in event plots.
+
+    Used by :py:func:`event_plot` and :py:func:`event_validation_plot`.
 
     :param ax: plot axes
     :type ax: Axes
     :param video_bands: :py:class:`VideoBand`\\s in ``ax`` with their index being equal to their y position
     :type video_bands: list[VideoBand]
-    :parma event_bands: a mapping of :py:class:`VideoBand` y position to associated :py:class:`EventBand`\\s
+    :param event_bands: a mapping of :py:class:`VideoBand` y position to associated :py:class:`EventBand`\\s
     :type event_bands: dict[int, list[EventBand]]
     :param ctrl_click_callback: optional function that is called when user control clicks within a :py:class:`VideoBand`, default
         is ``None``
-    :type ctrl_click_callback: Optional[CtrlClickCallback]"""
+    :type ctrl_click_callback: Optional[CtrlClickCallback]
+    """
 
     def __init__(
         self,
@@ -232,6 +238,19 @@ def _make_event_plot(
     df: pd.DataFrame,
     ctrl_click_callback: Optional[CtrlClickCallback] = None,
 ) -> tuple[Figure, Axes, EventInteractor]:
+    """Shared implementation for event timeline plots.
+
+    :param band_type: Event band class to render.
+    :type band_type: Type[EventBand]
+    :param metadata_repo: Video metadata indexed by ``video_id``.
+    :type metadata_repo: dict[str, VideoMetadata]
+    :param df: Event dataframe with required columns.
+    :type df: pd.DataFrame
+    :param ctrl_click_callback: Optional callback for ctrl-click events.
+    :type ctrl_click_callback: Optional[CtrlClickCallback]
+    :return: ``(figure, axes, interactor)`` tuple.
+    :rtype: tuple[Figure, Axes, EventInteractor]
+    """
     df = df.copy()
     df["video_id"] = pd.Categorical(df["video_id"])
     # get video y positions
@@ -290,12 +309,18 @@ def event_plot(
 
     :param metadata_repo: A dict of video metadata within ``df``
     :type metadata_repo: dict[str, VideoMetadata]
-    :param df: A ``pandas.DataFrame`` describing event data. Can be take from :py:meth:`.Scene.get_results`
+    :param df: A ``pandas.DataFrame`` describing event data. Can be taken from :py:meth:`.Scene.get_results`
     :type df: pd.DataFrame
     :param ctrl_click_callback: A callback function to be called when a user clicks within a :py:class:`VideoBand`, defaults to
         ``None``
     :type ctrl_click_callback: Optional[CtrlClickCallback], optional
-    :return: matplotlib figure and axes objects and interactivity handler
+    Required ``df`` columns:
+        - video_id
+        - subject
+        - start_frame
+        - end_frame
+
+    :return: Matplotlib figure and axes objects and interactivity handler.
     :rtype: tuple[Figure, Axes, EventInteractor]
     """
     return _make_event_plot(band_type=EventBand, metadata_repo=metadata_repo, df=df, ctrl_click_callback=ctrl_click_callback)
@@ -310,12 +335,20 @@ def event_validation_plot(
 
     :param metadata_repo: A dict of video metadata within ``df``
     :type metadata_repo: dict[str, VideoMetadata]
-    :param df: A ``pandas.DataFrame`` describing event data. Can be take from :py:func:`.validate_events.grade_events`
+    :param df: A ``pandas.DataFrame`` describing event data. Can be taken from :py:func:`.validate_events.validate_events`
     :type df: pd.DataFrame
     :param ctrl_click_callback: A callback function to be called when a user clicks within a :py:class:`VideoBand`, defaults to
         ``None``
     :type ctrl_click_callback: Optional[CtrlClickCallback], optional
-    :return: matplotlib figure and axes objects and interactivity handler
+    Required ``df`` columns:
+        - video_id
+        - source
+        - subject
+        - start_frame
+        - end_frame
+        - result
+
+    :return: Matplotlib figure and axes objects and interactivity handler.
     :rtype: tuple[Figure, Axes, EventInteractor]
     """
     return _make_event_plot(

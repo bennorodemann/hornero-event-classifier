@@ -1,8 +1,20 @@
+"""Utilities for validating detected events against BORIS annotations.
+
+These helpers produce labeled tables suitable for internal QA and reporting.
+"""
+
 import pandas as pd
 import numpy as np
 
 
 def _overlap_prep(df: pd.DataFrame) -> pd.DataFrame:
+    """Prepare a validation dataframe for overlap matching.
+
+    Columns added/modified:
+        - id: row index (sequential)
+        - length: event length in frames
+        - mud: removed
+    """
     # remove non hornero data
     df = df[df["subject"] != "otra_ave"]
     # add row id
@@ -13,19 +25,19 @@ def _overlap_prep(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _suffix_cleaner(col_name: str) -> str:
-    # remove df suffix
+    """Remove merge suffixes from column names."""
     return col_name.replace("_yolo", "").replace("_boris", "")
 
 
 def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: float = 0.7) -> pd.DataFrame:
-    """Validate :py:class:`.Scene` results using a boris validation by calculating percent overlap of between events.
+    """Validate :py:class:`.Scene` results against BORIS by calculating event overlap.
 
     Columns:
         - video_id: the video name string
         - source: if the event came from ``"YOLO"`` or ``"BORIS"``
         - subject: ``"ring"`` or ``"no_ring"``
-        - start_frame: the staring frame of event
-        - end_frame: the ending frame of event
+        - start_frame: the starting frame of the event
+        - end_frame: the ending frame of the event
         - result: if the event was correctly identified (``TP``/``PAIRED``) or not (``FP``/``FN``)
 
     :param yolo_data: :py:meth:`.Scene.get_results` output.
@@ -34,7 +46,14 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
     :type boris_data: pd.DataFrame
     :param overlap: the minimum required overlap between events, defaults to 0.7.
     :type overlap: float, optional
-    :return: a dataframe of events and if they were correctly identified or not.
+    Input columns expected in both ``yolo_data`` and ``boris_data``:
+        - video_id
+        - subject
+        - start_frame
+        - end_frame
+        - mud
+
+    :return: A dataframe of events and their validation result.
     :rtype: pd.DataFrame
     """
     # inner join by video_id

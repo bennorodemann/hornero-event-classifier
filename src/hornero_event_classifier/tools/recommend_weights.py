@@ -1,3 +1,8 @@
+"""Utilities for estimating metric weights from validated event data.
+
+Intended for internal calibration and model selection workflows.
+"""
+
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
@@ -13,10 +18,27 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
     """The function takes segment ``pandas.DataFrame`` (retrievable using :py:meth:`.SegmentCollection.as_df`) tries to compare it
     with boris data to estimate which subject each segment belongs to.
 
+    Columns:
+        - video_id: video name string
+        - id: segment row id (used for grouping)
+        - start_frame: first frame in segment
+        - end_frame: last frame in segment
+        - subject: BORIS subject label
+
     :param yolo: segment data from :py:meth:`.SegmentCollection.as_df`
     :type yolo: pd.DataFrame
     :param boris: ground truth boris data
     :type boris: pd.DataFrame
+    Input columns expected in ``yolo``:
+        - video_id
+        - start_frame
+        - end_frame
+        - one column per metric (uppercase names)
+    Input columns expected in ``boris``:
+        - video_id
+        - subject
+        - start_frame
+        - end_frame
     :return: classified segments
     :rtype: pd.DataFrame
     """
@@ -54,6 +76,17 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
 def _get_weights(
     model: LogisticRegression | Pipeline, data: pd.DataFrame, metrics: list[str]
 ) -> tuple[np.float64, pd.Series[np.float64]]:
+    """Fit a logistic model and compute normalized metric weights.
+
+    :param model: Logistic regression model or pipeline.
+    :type model: LogisticRegression | Pipeline
+    :param data: Reference dataframe containing metric columns and ``subject`` labels.
+    :type data: pd.DataFrame
+    :param metrics: Metric column names to use.
+    :type metrics: list[str]
+    :return: ``(threshold, weights)`` where ``weights`` is a normalized series indexed by metric name.
+    :rtype: tuple[np.float64, pd.Series[np.float64]]
+    """
     # pull selected metrics
     X: pd.DataFrame = data[metrics]
     # set predictions

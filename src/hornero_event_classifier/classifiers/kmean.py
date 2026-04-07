@@ -1,3 +1,8 @@
+"""K-means based classifier implementation.
+
+Designed for lightweight, unsupervised baselines in internal experiments.
+"""
+
 from typing import Iterable, Optional, Sequence
 
 import numpy as np
@@ -13,10 +18,20 @@ from hornero_event_classifier.core.data import Item
 
 
 class KMeanClassifier(Classifier):
+    """Unsupervised k-means classifier for ring/no-ring separation."""
+
     def __init__(self, metrics: Iterable[Metric]) -> None:
+        """Initialize a k-means classifier with the required metrics."""
         super().__init__(metrics)
 
     def train(self, data: SegmentCollection):
+        """Fit the k-means model and derive feature weights from cluster separation.
+
+        :param data: Segment collection used for training.
+        :type data: SegmentCollection
+        :return: ``None``.
+        :rtype: None
+        """
         self.scaler = StandardScaler()
         self.model = KMeans(2, n_init=200)
         training_matrix = data.data[[(segment.end - segment.start + 1) > 300 for segment in data.segments]]
@@ -35,8 +50,16 @@ class KMeanClassifier(Classifier):
         print(f"weights: {p_weights}")
 
     def classify_matrix(self, matrix: NDArray[np.floating]) -> NDArray[np.bool]:
+        """Classify rows of the metric matrix.
+
+        :param matrix: Metric data matrix (rows = segments, columns = metrics).
+        :type matrix: NDArray[np.floating]
+        :return: Boolean classifications per row.
+        :rtype: NDArray[np.bool]
+        """
         results = self.model.predict(self.scaler.transform(matrix) * self.weights)
         return self.classification_lookup[results]
 
     def clean_seq(self, segments: tuple[Sequence, ...], raw_classifications: NDArray[np.bool]) -> NDArray[np.bool]:
+        """Return raw classifications unchanged (no sequence cleaning)."""
         return raw_classifications
