@@ -62,6 +62,6 @@ def validate(
 
 if __name__ == "__main__":
     boris = pd.read_csv(BORIS_FILE)
-    df = pd.read_csv(RESULTS_FILE)
-    metadata_repo = read_metadata(METADATA_FILE)
-    results = validate(df, boris, metadata_repo)
+    yolo = pd.read_csv(RESULTS_FILE)
+    metadata = read_metadata(METADATA_FILE)
+    validate(yolo, boris, metadata)
