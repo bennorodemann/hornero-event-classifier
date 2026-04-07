@@ -24,4 +24,3 @@ Recommend Weights
 -----------------
 .. automodule:: hornero_event_classifier.tools.recommend_weights
     :members:
-

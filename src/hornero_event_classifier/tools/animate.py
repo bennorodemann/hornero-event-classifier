@@ -1,3 +1,10 @@
+"""Interactive video visualization for :py:class:`~hornero_event_classifier.core.scene.Scene` data.
+
+This module provides:
+- :py:class:`Renderer` for reading video frames and drawing overlays.
+- :py:class:`Animator` for interactive playback with keyboard controls.
+"""
+
 from __future__ import annotations
 
 import time
@@ -28,13 +35,13 @@ class StateEvent:
         self._cond = Condition()
 
     def set(self):
-        """Set internal flag to ``True`` and notify all objects waiting at :py:meth:`StateEvent.wait_for_set`"""
+        """Set internal flag to ``True`` and notify all objects waiting at :py:meth:`StateEvent.wait_for_set`."""
         with self._cond:
             self._flag = True
             self._cond.notify_all()
 
     def clear(self):
-        """Set internal flag to ``False`` and notify all objects waiting at :py:meth:`StateEvent.wait_for_clear`"""
+        """Set internal flag to ``False`` and notify all objects waiting at :py:meth:`StateEvent.wait_for_clear`."""
         with self._cond:
             self._flag = False
             self._cond.notify_all()
@@ -50,7 +57,7 @@ class StateEvent:
     def wait_for_set(self, timeout: Optional[float] = None):
         """Wait for internal flag to be set to ``True``. If the internal flag is already ``True`` returns instantly.
 
-        :param timeout: Time (in seconds) wait wait before giving up. If ``None`` (the default) it never timeout.
+        :param timeout: Time (in seconds) to wait before giving up. If ``None`` (the default) it never times out.
         :type timeout: Optional[float], optional
         """
         with self._cond:
@@ -60,7 +67,7 @@ class StateEvent:
     def wait_for_clear(self, timeout: Optional[float] = None):
         """Wait for internal flag to be set to ``False``. If the internal flag is already ``False`` returns instantly.
 
-        :param timeout: Time (in seconds) wait wait before giving up. If ``None`` (the default) it never timeout.
+        :param timeout: Time (in seconds) to wait before giving up. If ``None`` (the default) it never times out.
         :type timeout: Optional[float], optional
         """
         with self._cond:
@@ -89,7 +96,7 @@ class Renderer:
     """This class handles the reading of an input video, rendering :py:class:`.Scene` info, and optionally writing the rendered
     frames to an output video.
 
-    Renderings consist of :py:class:`~hornero_event_classifier.core.data.BBox` split up into 4 layers on top of the input videos
+    Renderings consist of :py:class:`~hornero_event_classifier.core.data.BBox` split up into 4 layers on top of the input video's
     frame that can be toggled off and on individually. They are (from bottom to top):
 
     1. :py:class:`.Item`\\s with the ignore flag in red (previous layers do not show ignored :py:class:`.Item`\\s).
@@ -101,11 +108,11 @@ class Renderer:
     drawn to connect ``bird`` and ``ring`` bounding :py:class:`.BBox`\\s.
 
     .. note::
-        This class does not show the output of frames. For window to display rendered frames use :py:class:`Animator`.
+        This class does not show the output of frames. For a window to display rendered frames use :py:class:`Animator`.
 
     :param in_video: Path to source video file.
     :type in_video: Path | str
-    :param frame_data: :py:class:`.BBox` info to render onto frames. Can be take from :py:class:`.Scene`.
+    :param frame_data: :py:class:`.BBox` info to render onto frames. Can be taken from :py:class:`.Scene`.
     :type frame_data: FrameIndexer[Frame]
     :param out_video: Optional path to write output video to. If ``None`` (the default), no video is written.
     :type out_video: Optional[str]
@@ -177,6 +184,7 @@ class Renderer:
 
     @property
     def fps(self) -> int:
+        """Frames per second of the input video. Can not be set."""
         return self._fps
 
     @property
@@ -189,15 +197,15 @@ class Renderer:
     def pos(self, value_: int):
         self.set_pos(value_, wait_til_ready=False)
 
-    #: Weather to render :py:class:`BBox`\\s in frame. The current frame is automatically refreshed when this is set.
+    #: Whether to render :py:class:`BBox`\\s in frame. The current frame is automatically refreshed when this is set.
     show_boxes = AutoRefresher[bool]()
-    #: Weather to render ignored layer (layer 1). The current frame is automatically refreshed when this is set.
+    #: Whether to render ignored layer (layer 1). The current frame is automatically refreshed when this is set.
     show_ignored = AutoRefresher[bool]()
-    #: Weather to render birds layer (layer 2). The current frame is automatically refreshed when this is set.
+    #: Whether to render birds layer (layer 2). The current frame is automatically refreshed when this is set.
     show_birds = AutoRefresher[bool]()
-    #: Weather to render rings layer (layer 3). The current frame is automatically refreshed when this is set.
+    #: Whether to render rings layer (layer 3). The current frame is automatically refreshed when this is set.
     show_rings = AutoRefresher[bool]()
-    #: Weather to render events layer (layer 4). The current frame is automatically refreshed when this is set.
+    #: Whether to render events layer (layer 4). The current frame is automatically refreshed when this is set.
     show_events = AutoRefresher[bool]()
 
     @property
@@ -256,6 +264,14 @@ class Renderer:
         return self._frame_ready.is_set()
 
     def set_pos(self, pos: int, wait_til_ready: bool = True):
+        """Set the current frame position and control when the render request is issued.
+
+        :param pos: Target frame position.
+        :type pos: int
+        :param wait_til_ready: If ``True``, wait until the current frame is ready, then immediately trigger a render at ``pos``.
+            If ``False``, the position only updates if no frame is currently rendering; otherwise the request is ignored.
+        :type wait_til_ready: bool
+        """
         # make sure new value is within allowed boundaries.
         if pos > self.max_pos:
             pos = self.max_pos
@@ -271,6 +287,10 @@ class Renderer:
             self._frame_ready.clear()
 
     def trigger_render(self):
+        """Request a new frame render.
+
+        This method blocks until the renderer is idle, then clears the frame-ready flag to trigger rendering.
+        """
         self._frame_ready.wait_for_set()
         self._frame_ready.clear()
 
@@ -282,7 +302,12 @@ class Renderer:
         """Set :py:attr:`pos` equal to :py:attr:`max_pos`."""
         self.set_pos(self.max_pos)
 
-    def grab_frame(self):
+    def grab_frame(self) -> tuple[bool, NDArray]:
+        """Retrieve the current frame from the video capture, handling jumps.
+
+        :return: Tuple of ``(success, frame)`` where ``success`` indicates whether the frame was read.
+        :rtype: tuple[bool, NDArray]
+        """
         # check difference between cv2 video pos and renderer pos
         next_frame = self.in_video.get(cv2.CAP_PROP_POS_FRAMES)
         jump = self.pos - next_frame
@@ -302,8 +327,11 @@ class Renderer:
         return suc, frame
 
     def render_frame(self):
-        # wait for a frame request
-        self._frame_ready.wait_for_clear()
+        """Render the current frame and update :py:attr:`current_frame`.
+
+        This method reads the frame, draws overlays, optionally writes to output video and then marks the frame as ready.
+        """
+
         success, frame = self.grab_frame()
         if success:
             # resize frame
@@ -321,6 +349,13 @@ class Renderer:
         self._frame_ready.set()
 
     def animate_frame(self, frame: Frame, img: NDArray):
+        """Draw all enabled overlay layers on a frame image.
+
+        :param frame: Frame data containing bounding boxes to render.
+        :type frame: Frame
+        :param img: Image array to draw onto (modified in place).
+        :type img: NDArray
+        """
         if self.show_ignored:
             # draw all ignored bboxes in red without id
             for old in frame.ignored:
@@ -361,6 +396,23 @@ class Renderer:
         text_anchor: Literal["nw", "ne", "sw", "se"] = "nw",
         show_center: bool = False,
     ):
+        """Draw a single bounding box (and optional label) onto an image.
+
+        :param bbox: Bounding box to draw.
+        :type bbox: BBox
+        :param img: Image array to draw onto (modified in place).
+        :type img: NDArray
+        :param color: RGB color tuple for the box.
+        :type color: Color
+        :param text: Optional label text.
+        :type text: str | None
+        :param text_color: Color for label text.
+        :type text_color: Color
+        :param text_anchor: Label anchor position (``"nw"``, ``"ne"``, ``"sw"``, ``"se"``).
+        :type text_anchor: Literal["nw", "ne", "sw", "se"]
+        :param show_center: If ``True``, draw a center point.
+        :type show_center: bool
+        """
         # rescale key variables
         x = int(bbox.x * self._scaler)
         y = int(bbox.y * self._scaler)
@@ -402,15 +454,23 @@ class Renderer:
             )
 
     def write_frame(self, frame: NDArray):
+        """Write a frame to the output video if enabled.
+
+        :param frame: Frame image to write.
+        :type frame: NDArray
+        """
         if self.out_video:
             self.out_video.write(frame)
 
     def _render_loop(self):
-        # the thread render loop
+        # Background render loop.
         while self.open:
+            # wait for a frame request
+            self._frame_ready.wait_for_clear()
             self.render_frame()
 
     def close(self):
+        """Stop rendering and release video resources."""
         # mark as closed
         self.open = False
 
@@ -426,6 +486,39 @@ class Renderer:
 
 
 class Animator:
+    """Interactive viewer for a :py:class:`Scene` with keyboard controls.
+
+    Keyboard Controls
+    -----------------
+    - ``ESC``: Quit.
+    - ``SPACE``: Pause/Play.
+    - ``A`` / ``D``: Previous/Next frame (only when paused).
+    - ``SHIFT+A`` / ``SHIFT+D``: Jump to start/end (only when paused).
+    - ``Q`` / ``E``: Jump backward/forward 1 second (only when paused).
+    - ``SHIFT+Q`` / ``SHIFT+E``: Jump backward/forward 3 seconds (only when paused).
+    - ``W`` / ``S``: Increase/Decrease sleep time by 1 ms (controls playback speed).
+    - ``J``: Enter frame jump mode (only when paused).
+    - ``C``: Toggle clipped mode (restrict playback to start/end).
+    - ``H``: Toggle all layers.
+    - ``1`` / ``2`` / ``3`` / ``4``: Toggle ignored/birds/rings/events layers.
+
+    Frame Jump Mode
+    ---------------
+    - Digits: Enter a frame number.
+    - ``ENTER``: Jump to the entered frame.
+    - ``BACKSPACE``: Delete last digit.
+    - ``Q``: Cancel and return to normal mode.
+
+    :param scene: Source scene to render.
+    :type scene: Scene
+    :param out_video: Optional output video path.
+    :type out_video: Optional[str]
+    :param scale: Render scale factor.
+    :type scale: float
+    :param scalable: If ``True``, creates a resizable window.
+    :type scalable: bool
+    """
+
     NORMAL: int = 0
     FRAME_JUMP: int = 1
 
@@ -433,13 +526,11 @@ class Animator:
         self,
         scene: Scene,
         out_video: Optional[str] = None,
-        mask: Optional[NDArray] = None,
         scale: float = 1.0,
         scalable: bool = True,
     ):
         self.scene = scene
         self.open: bool = True
-        self.mask = mask
         self.renderer = Renderer(scene.video_data.video_path, scene.frames, out_video, scaler=scale)
         self.rendered_frame = None
         self.min_sleep_time: int = int((1 / self.renderer.fps) * 1000) or 1
@@ -469,6 +560,7 @@ class Animator:
 
     @property
     def clipped(self) -> bool:
+        """Whether playback is clipped to the current start/end range."""
         return self._clipped
 
     @clipped.setter
@@ -491,19 +583,35 @@ class Animator:
             self.layers_str += "E" if self.renderer.show_events else "_"
 
     def set_frame(self, val: int) -> None:
+        """Jump to a specific frame.
+
+        :param val: Target frame number.
+        :type val: int
+        """
         self.renderer.set_pos(val)
 
     def set_start(self, val: Optional[int] = None):
+        """Set the clip start frame.
+
+        :param val: Start frame, or ``None`` to clear.
+        :type val: Optional[int]
+        """
         self._start = val
         if self._clipped:
             self.renderer.min_pos = self._start
 
     def set_end(self, val: Optional[int] = None):
+        """Set the clip end frame.
+
+        :param val: End frame, or ``None`` to clear.
+        :type val: Optional[int]
+        """
         self._end = val
         if self._clipped:
             self.renderer.max_pos = self._end
 
     def display_frames(self):
+        """Main event loop for display and keyboard handling."""
         # continues loop until animator or renders is closed
         while self.open and self.renderer.open:
             # if there is a ready frame and (the minimum sleep time has been reached or animator is paused)
@@ -641,6 +749,7 @@ class Animator:
                     self.text_entry = self.text_entry[1:]
 
     def update_window_name(self):
+        """Update the OpenCV window title based on current state."""
         # set window title based on animators internal state
         if self.state == self.FRAME_JUMP:
             # if in frame jump mode:
@@ -665,6 +774,7 @@ class Animator:
             )
 
     def close(self):
+        """Close the animator and destroy the window."""
         self.open = False
         self.renderer.close()
         # ensure all windows close
