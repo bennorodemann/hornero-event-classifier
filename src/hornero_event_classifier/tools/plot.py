@@ -178,16 +178,15 @@ class EventInteractor:
         self.cid = self.ax.figure.canvas.mpl_connect("button_press_event", self._on_click)
 
     def _on_click(self, mouse_event: Event | MouseEvent):
-        # make sure its a mouse event
+        # Ensure the event is a mouse click and occurred within the plot axes.
         if not isinstance(mouse_event, MouseEvent):
             return
-        # make sure mouse clicked within axes and has a x and y position
         if mouse_event.inaxes == self.ax and mouse_event.xdata is not None and mouse_event.ydata is not None:
             # save mouse position
             mouse_pos: tuple[float, float] = (mouse_event.xdata, mouse_event.ydata)
-            # if y position out of range, skip
+            # If y position is outside the visible video band range, ignore the click.
             if not 0 <= int(mouse_pos[1]) < len(self.video_bands):
-                pass
+                return
             # if left mouse click while holding control:
             elif mouse_event.button == MouseButton.LEFT and mouse_event.key == "control":
                 # check if mouse click was on a VideoBand and that there is a ctrl_click_callback
@@ -220,11 +219,14 @@ class EventInteractor:
         self.ax.figure.canvas.draw_idle()
 
     def miss_click(self, mouse_pos: tuple[float, float]):
-        """The method that is called when a user left clicks on a non-:py:class:`EventBand` region.
+        """Handle clicks on empty plot regions by hiding any active annotation.
 
-        :param mouse_pos: The (x, y) coordinates of the mouse click
+        The click coordinates are intentionally ignored by this handler.
+
+        :param mouse_pos: The (x, y) coordinates of the mouse click, ignored.
         :type mouse_pos: tuple[float, float]
         """
+        del mouse_pos
         self.annotation.set_visible(False)
         self.ax.figure.canvas.draw_idle()
 
@@ -322,6 +324,8 @@ def event_plot(
     :type ctrl_click_callback: Optional[CtrlClickCallback], optional
     :return: Matplotlib figure and axes objects and interactivity handler.
     :rtype: tuple[Figure, Axes, EventInteractor]
+
+    :seealso: :py:meth:`.Scene.get_results`, :py:class:`VideoBand`
     """
     return _make_event_plot(band_type=EventBand, metadata_repo=metadata_repo, df=df, ctrl_click_callback=ctrl_click_callback)
 
@@ -331,7 +335,7 @@ def event_validation_plot(
     df: pd.DataFrame,
     ctrl_click_callback: Optional[CtrlClickCallback] = None,
 ) -> tuple[Figure, Axes, EventInteractor]:
-    """Create a plot displaying event timelines across multiple videos along side boris data with color coding of accuracy.
+    """Create a plot displaying event timelines across multiple videos alongside BORIS data with color coding for accuracy.
 
     Required ``df`` columns:
         - video_id
@@ -350,6 +354,8 @@ def event_validation_plot(
     :type ctrl_click_callback: Optional[CtrlClickCallback], optional
     :return: Matplotlib figure and axes objects and interactivity handler.
     :rtype: tuple[Figure, Axes, EventInteractor]
+
+    :seealso: :py:func:`~.validate_events.validate_events`, :py:class:`VideoBand`
     """
     return _make_event_plot(
         band_type=ValidationEventBand, metadata_repo=metadata_repo, df=df, ctrl_click_callback=ctrl_click_callback

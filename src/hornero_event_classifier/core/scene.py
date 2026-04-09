@@ -90,6 +90,7 @@ class Scene:
         :raises FileNotFoundError: Raise an error if :py:attr:`.VideoMetadata.yolo_path` could not be found.
         :return: Loaded instance of video YOLO data.
         :rtype: Self
+        :seealso: :py:class:`.VideoMetadata`, :py:meth:`.BBox.from_yolo`
         """
         if not metadata.yolo_path.is_file():
             raise FileNotFoundError(f"file not found: {metadata.yolo_path}")
@@ -126,6 +127,8 @@ class Scene:
         :type item_types: ItemType
         :return: This :py:class:`Scene` instance.
         :rtype: Self
+        :seealso: :py:attr:`~hornero_event_classifier.core.data.Item.ignore`,
+            :py:attr:`~hornero_event_classifier.core.data.Item.boxes`
         """
         # per item of item types in item_types
         for item in self.items.get(*item_types):
@@ -138,7 +141,7 @@ class Scene:
         return self
 
     def _combine_filters(self, funcs: tuple[FilterFunc, ...]) -> FilterFunc:
-        # return a function that ensures all funcs return True
+        # Return a filter function that only passes when all provided filters pass.
         def combo_filter(box1: BBox, box2: BBox) -> bool:
             return all(func(box1, box2) for func in funcs)
 
@@ -159,6 +162,7 @@ class Scene:
         :type item_types: ItemType
         :return: This :py:class:`Scene` instance.
         :rtype: Self
+        :seealso: :py:func:`~hornero_event_classifier.core.filters.make_gap_filter`, :py:meth:`Scene.fill_gaps`
         """
         # if there are multiple filter functions, combine them into a single function (AND-wise)
         if isinstance(filter_func, Iterable):
@@ -196,6 +200,7 @@ class Scene:
         :type item_types: ItemType
         :return: This :py:class:`Scene` instance.
         :rtype: Self
+        :seealso: :py:meth:`.Scene.split_items`, :py:meth:`~hornero_event_classifier.core.data.BBox.surround`
         """
         # if none set to empty tuple (will be passed to self._combine_filters and always return True)
         filter_func = filter_func or ()
@@ -252,7 +257,7 @@ class Scene:
         return self
 
     def _merge_birds(self, overlap: float, correlation: float, exists_only: bool = False) -> Self:
-        # TODO: This method is currently outdated/deprecated and should be reworked to follow the filter system.
+        # Legacy behavior: this method remains for backwards compatibility but uses outdated merge logic.
         warnings.warn("Scene.merge_birds is no longer being developed and may lead to unexpected behavior")
         birds: list[Item] = sorted(self.items.get(ItemType.BIRD), key=lambda i: i.start)
         overlaps: dict[Item, set[Item]] = {}
@@ -324,6 +329,8 @@ class Scene:
         :type segment_length: Optional[int], optional
         :return: This :py:class:`Scene` instance.
         :rtype: Self
+        :seealso: :py:class:`~hornero_event_classifier.classifiers.SegmentCollection`,
+            :py:class:`~hornero_event_classifier.classifiers.Classifier`
         """
         # create segments from bird items
         self.segments = SegmentCollection(self.items.get(ItemType.BIRD), classifier.metrics, segment_length=segment_length)
@@ -349,6 +356,7 @@ class Scene:
         :type buffer: int, optional
         :return: This :py:class:`Scene` instance.
         :rtype: Self
+        :seealso: :py:meth:`~hornero_event_classifier.core.data.Item.spawn_event`
         """
         cache: list[list[Item]] = []
         active: dict[Subject, list[Item]] = {}
@@ -407,6 +415,7 @@ class Scene:
 
         :return: Dataframe of found events.
         :rtype: pd.DataFrame
+        :seealso: :py:meth:`Scene.define_events`
         """
         events = list(self.items.get(ItemType.EVENT))
         return pd.DataFrame([self._get_result(event) for event in events])

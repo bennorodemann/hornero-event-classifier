@@ -95,6 +95,7 @@ class BBox:
         :type frame: Frame
         :return: A new instance.
         :rtype: Self
+        :seealso: :py:func:`~hornero_event_classifier.core.types.type_yolo_data`, :py:meth:`Item.add_bbox`
         """
         return cls(frame, item, data["Xmin"], data["Xmax"], data["Ymin"], data["Ymax"], data["Conf"])
 
@@ -109,6 +110,7 @@ class BBox:
         :raises ValueError: If not all ``BBox``\\s in ``bboxes`` are from the same frame.
         :return: A new instance.
         :rtype: Self
+        :seealso: :py:meth:`Item.spawn_event`
         """
         ref = bboxes[0]
         # check all bboxes are in the same frame
@@ -305,6 +307,7 @@ class Item:
         :type key: str
         :return: New instance described by ``key``.
         :rtype: Self
+        :seealso: :py:attr:`Item.key`
         """
         _, item_type, ids = key.split("-")
         main_id, sub_id = (int(id_) for id_ in ids.split("."))
@@ -322,6 +325,7 @@ class Item:
         :type items: Sequence[Self]
         :return: New instance combining provided ``Item``\\s.
         :rtype: Self
+        :seealso: :py:meth:`Item.spawn_event`
         """
         # pylint: disable=[protected-access]
         new = items[0]._make_child()
@@ -343,6 +347,7 @@ class Item:
         :raises ValueError: If :py:attr:`Item.subject` is :py:attr:`.Subject.NOT_CLASSIFIED`.
         :return: New instance of type :py:attr:`.ItemType.EVENT`.
         :rtype: Self
+        :seealso: :py:meth:`Item.combine`
         """
         ref = source[0]
         if not all(i.subject == ref.subject for i in source):
@@ -456,6 +461,7 @@ class Item:
         :type frame: int
         :return: New child ``Item`` instance.
         :rtype: Self
+        :seealso: :py:meth:`~hornero_event_classifier.core.collections.FrameIndexer.cut`
         """
         new = self._make_child()
         new._boxes = self._boxes.cut(frame)  # pylint: disable=protected-access
@@ -472,6 +478,7 @@ class Item:
         :type max_gap: int, optional
         :return: list of neighboring :py:class:`BBox` pairs
         :rtype: list[tuple[BBox, BBox]]
+        :seealso: :py:meth:`Item.cut_at`
         """
         return [
             (self._boxes[start], self._boxes[stop])

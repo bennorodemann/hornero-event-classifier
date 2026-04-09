@@ -30,7 +30,7 @@ def _suffix_cleaner(col_name: str) -> str:
 
 
 def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: float = 0.7) -> pd.DataFrame:
-    """Validate :py:class:`.Scene` results against BORIS by calculating event overlap.
+    """Validate :py:class:`.Scene` results against BORIS annotations by calculating event overlap.
 
     Output dataframe columns:
         - video_id: the video name string
@@ -55,6 +55,8 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
     :type overlap: float, optional
     :return: A dataframe of events and their validation result.
     :rtype: pd.DataFrame
+    :seealso: :py:func:`~hornero_event_classifier.tools.recommend_weights.classify_with_boris`,
+        :py:meth:`~hornero_event_classifier.core.scene.Scene.get_results`
     """
     # inner join by video_id
     df = pd.merge(_overlap_prep(yolo_data), _overlap_prep(boris_data), on="video_id", suffixes=("_yolo", "_boris"))

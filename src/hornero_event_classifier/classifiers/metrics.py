@@ -162,11 +162,11 @@ class MetricRegistry[O]:
         return self._takes[key]
 
     def get_dependency_list(self, key: Metric) -> set[req.Dependency]:
-        """Get all required :py:class:`dependencies.Dependency`\\s and child dependencies.
+        """Return all direct and nested dependencies required by a metric.
 
-        :param key: _description_
+        :param key: Metric to inspect.
         :type key: Metric
-        :return: _description_
+        :return: Set of dependency functions required by the metric.
         :rtype: set[req.Dependency]
         """
         out = set(self._takes[key])

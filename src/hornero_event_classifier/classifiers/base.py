@@ -266,6 +266,8 @@ class Classifier(ABC):
         """Classify segments for each item and return :py:meth:`_simplify`\\ed segment groups.
 
         This method should generally not be overwritten when subclassing.
+
+        :seealso: :py:meth:`Classifier.classify_matrix`, :py:meth:`Classifier.clean_seq`
         """
         if data.metrics != self.metrics:
             raise ValueError(f"The metrics of {type(self).__name__} and {type(data).__name__} do not match.")
@@ -328,5 +330,6 @@ class Classifier(ABC):
         :type raw_classifications: NDArray[np.bool]
         :return: The cleaned boolean array of the same length as ``raw_classifications``
         :rtype: NDArray[np.bool]
+        :seealso: :py:meth:`Classifier.classify`, :py:meth:`Classifier.classify_matrix`
         """
         return raw_classifications

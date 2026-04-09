@@ -8,7 +8,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import sklearn
-import scipy
 
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.pipeline import Pipeline, make_pipeline
@@ -21,8 +20,10 @@ sklearn.set_config(enable_metadata_routing=True)
 
 
 def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame:
-    """The function takes segment ``pandas.DataFrame`` (retrievable using :py:meth:`.SegmentCollection.as_df`) tries to compare it
-    with boris data to estimate which subject each segment belongs to.
+    """Compare segment data to BORIS annotations and estimate subject labels for each segment.
+
+    This function attempts to match YOLO-derived segment rows with BORIS ground truth and label the resulting
+    segments as ``ring`` or ``no_ring`` based on overlap and metric behavior.
 
     Output dataframe columns:
         - video_id: video name string
@@ -49,6 +50,7 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
     :type boris: pd.DataFrame
     :return: classified segments
     :rtype: pd.DataFrame
+    :seealso: :py:func:`recommend_weights`
     """
     yolo = yolo.copy()
     # remove non hornero events
@@ -124,11 +126,12 @@ def recommend_weights(ref: pd.DataFrame, metrics: list[Metric] | None = None) ->
     :type metrics: list[Metric] | None, optional
     :return: a recommended threshold and weights for provided metrics
     :rtype: tuple[np.float64, pd.Series[np.float64]]
+    :seealso: :py:func:`classify_with_boris`, :py:func:`~hornero_event_classifier.tools.validate_events.validate_events`
     """
     if not metrics:
         # get all metrics
         metric_strs: list[str] = [metric.name for metric in Metric]
-        # grab weighs
+        # fit a sparse logistic model to select non-zero metric weights
         _, weights = _get_weights(
             make_pipeline(
                 StandardScaler(),  # scale input data

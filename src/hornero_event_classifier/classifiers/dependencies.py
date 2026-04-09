@@ -60,7 +60,7 @@ def local_rings(boxes: Sequence[BBox]):
         :py:class:`~data.BBox`\\s to modify
     :type boxes: Sequence[BBox]
     """
-    # if global rings are already added pull global ring list from there otherwise get global ring list for itself
+    # If global rings are already cached, reuse them; otherwise compute them from the current frame.
     if global_rings in boxes[0].metrics_cache:
         for box in boxes:
             box.metrics_cache[local_rings] = tuple(ring for ring in box.metrics_cache[global_rings] if ring.within(box))

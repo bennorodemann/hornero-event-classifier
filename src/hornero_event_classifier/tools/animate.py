@@ -291,7 +291,7 @@ class Renderer:
     def trigger_render(self):
         """Request a new frame render.
 
-        This method blocks until the renderer is idle, then clears the frame-ready flag to trigger rendering.
+        Wait until the renderer is idle, then clear the ready flag to signal a new render.
         """
         self._frame_ready.wait_for_set()
         self._frame_ready.clear()
