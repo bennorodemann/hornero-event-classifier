@@ -1,4 +1,7 @@
-"""The hornero_event_classifier library is a system that detects visitation events of ringed and unringed hornero to a nest."""
+"""Core package for detecting visitation events of ringed and unringed hornero.
+
+This package aggregates the public API used in internal workflows.
+"""
 
 from hornero_event_classifier import tools
 from hornero_event_classifier.classifiers import Classifier, Metric, SegmentCollection, Sequence, ThresholdClassifier

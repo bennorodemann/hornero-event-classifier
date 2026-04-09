@@ -1,5 +1,7 @@
 """Metric definitions and their registered logic.
 
+These metrics are the primary inputs to internal classifiers.
+
 .. currentmodule:: hornero_event_classifier.classifiers
 """
 

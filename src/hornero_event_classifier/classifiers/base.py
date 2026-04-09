@@ -1,4 +1,7 @@
-"""Core classifier building blocks and shared utilities."""
+"""Core classifier building blocks and shared utilities.
+
+This module defines the base abstractions used by internal classifier implementations.
+"""
 
 from __future__ import annotations
 

@@ -440,7 +440,7 @@ class Item:
         :return: Number of shared frames.
         :rtype: int
         """
-        return max(min(self.end, other.end) - max(self.start, other.start), 0)
+        return max(min(self.end, other.end) - max(self.start, other.start) + 1, 0)
 
     def is_ring(self) -> bool:
         """Returns ``True`` if ``Item.type`` is :py:attr:`.ItemType.RING_METAL` or :py:attr:`.ItemType.RING_PLASTIC`. ``False``

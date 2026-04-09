@@ -32,7 +32,7 @@ def _suffix_cleaner(col_name: str) -> str:
 def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: float = 0.7) -> pd.DataFrame:
     """Validate :py:class:`.Scene` results against BORIS by calculating event overlap.
 
-    Columns:
+    Output dataframe columns:
         - video_id: the video name string
         - source: if the event came from ``"YOLO"`` or ``"BORIS"``
         - subject: ``"ring"`` or ``"no_ring"``
@@ -40,12 +40,6 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
         - end_frame: the ending frame of the event
         - result: if the event was correctly identified (``TP``/``PAIRED``) or not (``FP``/``FN``)
 
-    :param yolo_data: :py:meth:`.Scene.get_results` output.
-    :type yolo_data: pd.DataFrame
-    :param boris_data: ground truth boris dataframe.
-    :type boris_data: pd.DataFrame
-    :param overlap: the minimum required overlap between events, defaults to 0.7.
-    :type overlap: float, optional
     Input columns expected in both ``yolo_data`` and ``boris_data``:
         - video_id
         - subject
@@ -53,6 +47,12 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
         - end_frame
         - mud
 
+    :param yolo_data: :py:meth:`.Scene.get_results` output.
+    :type yolo_data: pd.DataFrame
+    :param boris_data: ground truth boris dataframe.
+    :type boris_data: pd.DataFrame
+    :param overlap: the minimum required overlap between events, defaults to 0.7.
+    :type overlap: float, optional
     :return: A dataframe of events and their validation result.
     :rtype: pd.DataFrame
     """

@@ -3,13 +3,19 @@
 Intended for internal calibration and model selection workflows.
 """
 
-import pandas as pd
+from __future__ import annotations
+
 import numpy as np
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline, Pipeline
-from hornero_event_classifier.classifiers import Metric
+import pandas as pd
 import sklearn
+import scipy
+
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+from sklearn.pipeline import Pipeline, make_pipeline
+from sklearn.preprocessing import StandardScaler
+
+
+from hornero_event_classifier.classifiers import Metric
 
 sklearn.set_config(enable_metadata_routing=True)
 
@@ -18,27 +24,29 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
     """The function takes segment ``pandas.DataFrame`` (retrievable using :py:meth:`.SegmentCollection.as_df`) tries to compare it
     with boris data to estimate which subject each segment belongs to.
 
-    Columns:
+    Output dataframe columns:
         - video_id: video name string
         - id: segment row id (used for grouping)
         - start_frame: first frame in segment
         - end_frame: last frame in segment
         - subject: BORIS subject label
 
-    :param yolo: segment data from :py:meth:`.SegmentCollection.as_df`
-    :type yolo: pd.DataFrame
-    :param boris: ground truth boris data
-    :type boris: pd.DataFrame
     Input columns expected in ``yolo``:
         - video_id
         - start_frame
         - end_frame
         - one column per metric (uppercase names)
+
     Input columns expected in ``boris``:
         - video_id
         - subject
         - start_frame
         - end_frame
+
+    :param yolo: segment data from :py:meth:`.SegmentCollection.as_df`
+    :type yolo: pd.DataFrame
+    :param boris: ground truth boris data
+    :type boris: pd.DataFrame
     :return: classified segments
     :rtype: pd.DataFrame
     """

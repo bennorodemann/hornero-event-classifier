@@ -14,6 +14,8 @@ Plot
 ----
 .. automodule:: hornero_event_classifier.tools.plot
    :members:
+   :exclude-members: set
+   :no-value:
 
 Validate Events
 ---------------

@@ -3,6 +3,8 @@
 This module provides:
 - :py:class:`Renderer` for reading video frames and drawing overlays.
 - :py:class:`Animator` for interactive playback with keyboard controls.
+
+These utilities are intended for internal QA and review workflows.
 """
 
 from __future__ import annotations

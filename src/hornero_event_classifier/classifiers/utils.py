@@ -1,8 +1,11 @@
-"""This module contains a few util functions. None of them are currently being used but have been left in for future availability
-if needed."""
+"""Utility functions for classifier feature processing.
+
+These helpers are retained for internal experimentation and future use.
+"""
 
 import numpy as np
 from numpy.typing import NDArray
+from typing import Optional
 
 
 def moving_average(data: NDArray, window_size: int) -> NDArray[np.floating]:
@@ -99,9 +102,9 @@ def square_filter(data: NDArray, step_up: bool) -> NDArray[np.floating]:
     if data.dtype == np.bool:
         data = data.astype(np.int16)
     # determine the direction of the square filter
-    step = [1, -1] if step_up else [-1, 1]
+    step = (1, -1) if step_up else (-1, 1)
     # scale data to be between -1 and 1
-    normed = normalize(data, *step)
+    normed = normalize(data, source_range=(0, 1), target_range=step)
 
     sums = np.cumsum(normed)
     total = sums[-1]
@@ -109,19 +112,29 @@ def square_filter(data: NDArray, step_up: bool) -> NDArray[np.floating]:
     return (2 * sums - total) / len(data)
 
 
-def normalize(data: NDArray, min_: float | np.number, max_: float | np.number) -> NDArray:
-    """Linearly rescale ``data`` to the range ``[min_, max_]``.
+def normalize(
+    data: NDArray,
+    source_range: Optional[tuple[float | np.number, float | np.number]] = None,
+    target_range: tuple[float | np.number, float | np.number] = (0, 1),
+) -> NDArray:
+    """Linearly rescale ``data`` from ``source_range`` to ``target_range``.
 
     :param data: Input array.
     :type data: NDArray
-    :param min_: Desired minimum value.
-    :type min_: float | np.number
-    :param max_: Desired maximum value.
-    :type max_: float | np.number
+    :param source_range: Source range ``(min, max)`` for normalization. If ``None``, uses ``(data.min(), data.max())``.
+    :type source_range: Optional[tuple[float | np.number, float | np.number]]
+    :param target_range: Target range ``(min, max)`` after normalization.
+    :type target_range: tuple[float | np.number, float | np.number]
     :return: Rescaled array.
     :rtype: NDArray
     """
-    scaler = ((data.max() - data.min()) / (max_ - min_)) + 1e-9
-    move = ((max_ + min_) / 2) - (((data.max() + data.min()) / 2) / scaler)
+    if source_range is None:
+        source_range = (data.min(), data.max())
+    s_min, s_max = source_range
+    t_min, t_max = target_range
+    if (s_max - s_min) == 0 or (t_max - t_min) == 0:
+        raise ValueError("source_range and target_range span can not equal 0")
+    scaler = (s_max - s_min) / (t_max - t_min)
+    move = ((t_max + t_min) / 2) - (((s_max + s_min) / 2) / scaler)
 
     return (data / scaler) + move

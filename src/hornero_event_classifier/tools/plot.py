@@ -307,6 +307,12 @@ def event_plot(
 ) -> tuple[Figure, Axes, EventInteractor]:
     """Create a plot displaying event timelines across multiple videos.
 
+    Required ``df`` columns:
+        - video_id
+        - subject
+        - start_frame
+        - end_frame
+
     :param metadata_repo: A dict of video metadata within ``df``
     :type metadata_repo: dict[str, VideoMetadata]
     :param df: A ``pandas.DataFrame`` describing event data. Can be taken from :py:meth:`.Scene.get_results`
@@ -314,12 +320,6 @@ def event_plot(
     :param ctrl_click_callback: A callback function to be called when a user clicks within a :py:class:`VideoBand`, defaults to
         ``None``
     :type ctrl_click_callback: Optional[CtrlClickCallback], optional
-    Required ``df`` columns:
-        - video_id
-        - subject
-        - start_frame
-        - end_frame
-
     :return: Matplotlib figure and axes objects and interactivity handler.
     :rtype: tuple[Figure, Axes, EventInteractor]
     """
@@ -333,13 +333,6 @@ def event_validation_plot(
 ) -> tuple[Figure, Axes, EventInteractor]:
     """Create a plot displaying event timelines across multiple videos along side boris data with color coding of accuracy.
 
-    :param metadata_repo: A dict of video metadata within ``df``
-    :type metadata_repo: dict[str, VideoMetadata]
-    :param df: A ``pandas.DataFrame`` describing event data. Can be taken from :py:func:`.validate_events.validate_events`
-    :type df: pd.DataFrame
-    :param ctrl_click_callback: A callback function to be called when a user clicks within a :py:class:`VideoBand`, defaults to
-        ``None``
-    :type ctrl_click_callback: Optional[CtrlClickCallback], optional
     Required ``df`` columns:
         - video_id
         - source
@@ -348,6 +341,13 @@ def event_validation_plot(
         - end_frame
         - result
 
+    :param metadata_repo: A dict of video metadata within ``df``
+    :type metadata_repo: dict[str, VideoMetadata]
+    :param df: A ``pandas.DataFrame`` describing event data. Can be taken from :py:func:`.validate_events.validate_events`
+    :type df: pd.DataFrame
+    :param ctrl_click_callback: A callback function to be called when a user clicks within a :py:class:`VideoBand`, defaults to
+        ``None``
+    :type ctrl_click_callback: Optional[CtrlClickCallback], optional
     :return: Matplotlib figure and axes objects and interactivity handler.
     :rtype: tuple[Figure, Axes, EventInteractor]
     """

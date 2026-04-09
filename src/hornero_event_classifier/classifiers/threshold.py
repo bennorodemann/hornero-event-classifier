@@ -1,4 +1,7 @@
-"""Threshold-based classifier implementation."""
+"""Threshold-based classifier implementation.
+
+Designed for simple, interpretable baselines in internal pipelines.
+"""
 
 from typing import Iterable, Sequence, Self
 

@@ -17,6 +17,7 @@ from hornero_event_classifier import (
     filters,
     read_metadata,
 )
+from hornero_event_classifier.classifiers import KMeanClassifier
 from hornero_event_classifier.tools import event_plot
 
 
@@ -25,6 +26,16 @@ def _no_print(*_, **__) -> None:
 
 
 def load_default_classifier() -> Classifier:
+    return KMeanClassifier(
+        (
+            Metric.AVG_PLASTIC,
+            Metric.AVG_Y_SCORE,
+            Metric.RING_PRESENCE,
+            Metric.RAD_STD,
+            Metric.AVG_RING_CONF,
+            Metric.PER_OWNERSHIP,
+        )
+    )
     dir_ = Path(__file__).parent
     with open(dir_ / "weights.json", "r", encoding="utf-8") as file:
         data = json.load(file)

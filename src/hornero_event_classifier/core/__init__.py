@@ -1,4 +1,4 @@
-"""The hornero_event_classifier.core library defines the classes relevant for the primary workflow."""
+"""Core data structures and helpers for the primary workflow."""
 
 from hornero_event_classifier.core import filters
 from hornero_event_classifier.core.data import BBox, Frame, Item
