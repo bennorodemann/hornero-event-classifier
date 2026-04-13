@@ -23,6 +23,8 @@ If you prefer pip-only installation, run:
 
     pip install -e .
 
+.. warning:: If you do not use conda you may need to install ``ffmpeg`` yourself, if not already installed.
+    
 Building documentation
 ----------------------
 
