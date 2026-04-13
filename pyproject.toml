@@ -8,8 +8,18 @@ version = "0.1.0"
 description = "Event processing and grading utilities."
 requires-python = ">=3.12"
 dependencies = [
-    "sortedcontainers>=2.4.0",
+    "sortedcontainers",
+    "numpy", 
+    "pandas", 
+    "matplotlib", 
+    "scikit-learn",
+    "ffmpeg-python", 
+    "opencv-python",
+    "sphinx",
 ]
+
+# [project.scripts]
+# classify = "run.classify"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

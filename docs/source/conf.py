@@ -8,25 +8,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
-    import tomli as tomllib  # type: ignore
-
-
-def _read_project_version() -> str:
-    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
-    data = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
-    return data["project"]["version"]
-
 
 project = "Hornero Event Classifier"
 copyright = "2026, Benno Rodemann"
 author = "Benno Rodemann"
-release = _read_project_version()
-version = ".".join(release.split(".")[:2]) if "." in release else release
+version = "1.0"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -44,7 +30,7 @@ exclude_patterns = []
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 html_theme = "sphinx_rtd_theme"
-html_static_path = ["_static"]
+# html_static_path = ["_static"]
 
 
 autodoc_member_order = "bysource"

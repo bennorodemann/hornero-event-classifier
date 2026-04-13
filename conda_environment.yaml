@@ -1,0 +1,16 @@
+name: hec_venv
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - sortedcontainers
+  - numpy
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - ffmpeg-python
+  - py-opencv
+  - pip
+  - pylint
+  - sphinx
+  - sphinx_rtd_theme

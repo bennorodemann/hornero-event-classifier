@@ -14,6 +14,7 @@ from matplotlib.backend_bases import Event, MouseButton, MouseEvent
 from matplotlib.figure import Figure
 from matplotlib.patches import Patch, Rectangle
 from matplotlib.text import Annotation
+import cv2
 
 from hornero_event_classifier.core import VideoMetadata
 
@@ -171,11 +172,16 @@ class EventInteractor:
             "", xy=(0, 0), xytext=(10, 10), textcoords="offset points", bbox={"boxstyle": "round"}, visible=False
         )
 
-        self.cid: int
+        self.button_cid: int
+        self.close_cid: int
         self._connect_events()
 
     def _connect_events(self):
-        self.cid = self.ax.figure.canvas.mpl_connect("button_press_event", self._on_click)
+        self.button_cid = self.ax.figure.canvas.mpl_connect("button_press_event", self._on_click)
+        self.close_cid = self.ax.figure.canvas.mpl_connect("close_event", self._on_close)
+
+    def _on_close(self, close_event: Event):
+        cv2.destroyAllWindows()
 
     def _on_click(self, mouse_event: Event | MouseEvent):
         # Ensure the event is a mouse click and occurred within the plot axes.
@@ -254,9 +260,9 @@ def _make_event_plot(
     :rtype: tuple[Figure, Axes, EventInteractor]
     """
     df = df.copy()
-    df["video_id"] = pd.Categorical(df["video_id"])
+    df["video_id"] = pd.Categorical(df["video_id"], ordered=True)
     # get video y positions
-    df["video_num"] = df["video_id"].factorize()[0]
+    df["video_num"], video_categories = df["video_id"].factorize()
 
     fig: Figure
     ax: Axes
@@ -265,12 +271,13 @@ def _make_event_plot(
     videos: list[VideoBand] = []
     end: int = 0
     # for every video create video band
-    for y, v in enumerate(df.video_id.dtype.categories):  # type: ignore
+    for y, v in enumerate(video_categories):  # enumerate(df.video_id.dtype.categories):  # type: ignore
         metadata: VideoMetadata = metadata_repo[v]
         end = max(end, metadata.duration_f)
         video = VideoBand(metadata_repo[v], y)
         ax.add_patch(video)
         videos.append(video)
+        # df.loc[df["video_id"] == metadata.name, "video_num"] = y
 
     events: dict[int, list[EventBand]] = {}
     # for every row create a event band
@@ -291,7 +298,7 @@ def _make_event_plot(
         bbox_to_anchor=(1.07, 0.6),
     )
     # add video labels
-    ax.set_yticks(np.arange(len(df["video_id"].dtype.categories)) + 0.5, df["video_id"].dtype.categories)  # type: ignore
+    ax.set_yticks(np.arange(len(video_categories)) + 0.5, video_categories)  # type: ignore
     # set x and y limits
     ax.set_xlim(0, end, auto=True)
     ax.set_ylim(0, max(df["video_num"]) + 1, auto=False)
@@ -327,7 +334,9 @@ def event_plot(
 
     :seealso: :py:meth:`.Scene.get_results`, :py:class:`VideoBand`
     """
-    return _make_event_plot(band_type=EventBand, metadata_repo=metadata_repo, df=df, ctrl_click_callback=ctrl_click_callback)
+    return _make_event_plot(
+        band_type=EventBand, metadata_repo=metadata_repo, df=df, ctrl_click_callback=ctrl_click_callback
+    )
 
 
 def event_validation_plot(

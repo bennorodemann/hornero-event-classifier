@@ -366,7 +366,9 @@ class Renderer:
             # draw all bird bboxes in green if real or yellow if not real
             for bird in frame.birds:
                 text = f"{bird.item_obj.id}.{bird.item_obj.sub_id}({bird.conf:.02f})"
-                self.animate_bbox(bird, img, (0, 255, 0 if bird.real else 255), text=text, show_center=True, text_anchor="sw")
+                self.animate_bbox(
+                    bird, img, (0, 255, 0 if bird.real else 255), text=text, show_center=True, text_anchor="sw"
+                )
                 # if rings are also shown and local_rings loaded in metrics_cache: draw lines between the bird and all rings
                 if self.show_rings:
                     for ring in bird.metrics_cache.get(ref.local_rings, []):
@@ -452,7 +454,13 @@ class Renderer:
             # draw background rectangle and text on top
             cv2.rectangle(img, (frame_x, frame_y, frame_width, frame_height), color, -1)
             cv2.putText(
-                img, text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.75 * self._scaler, text_color, int(2 * self._scaler)
+                img,
+                text,
+                (text_x, text_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.75 * self._scaler,
+                text_color,
+                int(2 * self._scaler),
             )
 
     def write_frame(self, frame: NDArray):
@@ -473,18 +481,19 @@ class Renderer:
 
     def close(self):
         """Stop rendering and release video resources."""
-        # mark as closed
-        self.open = False
+        if self.open:
+            # mark as closed
+            self.open = False
 
-        # close open videos
-        self.in_video.release()
-        if self.out_video:
-            self.out_video.release()
+            # close open videos
+            self.in_video.release()
+            if self.out_video:
+                self.out_video.release()
 
-        # in case renderer thread is currently waiting for next frame, request next frame
-        self._frame_ready.clear()
-        # wait for thread to close
-        self.thread.join()
+            # in case renderer thread is currently waiting for next frame, request next frame
+            self._frame_ready.clear()
+            # wait for thread to close
+            self.thread.join()
 
 
 class Animator:
@@ -544,14 +553,15 @@ class Animator:
         self._end: Optional[int] = None
         self.clipped = False
         self.layers_str: str = ""
+        self.window_name: str = f"animator {id(self)}"
         self._refresh_layers_str()
 
         window_flags = cv2.WINDOW_NORMAL if scalable else cv2.WINDOW_AUTOSIZE
         if scalable:
-            cv2.namedWindow("out", window_flags)
-        cv2.imshow("out", self.renderer.current_frame)
-        cv2.resizeWindow("out", 1920, 1080)
-        self.update_window_name()
+            cv2.namedWindow(self.window_name, window_flags)
+        cv2.imshow(self.window_name, self.renderer.current_frame)
+        cv2.resizeWindow(self.window_name, 1920, 1080)
+        self.update_window_title()
 
     def __enter__(self):
         return self
@@ -623,7 +633,7 @@ class Animator:
                 # if it is a new frame, show it in the window
                 if self.renderer.current_frame is not self.rendered_frame:
                     c_frame: NDArray = self.renderer.current_frame
-                    cv2.imshow("out", c_frame)
+                    cv2.imshow(self.window_name, c_frame)
                 # if animator is not paused:
                 if not self.paused:
                     # if render is equal to or beyond renders max_pos then pause animator
@@ -634,8 +644,8 @@ class Animator:
                         self.renderer.pos += 1
                         self.last_render_time = time.time()
                 # if animator is paused, sleep until next key command, if playing, sleep for at least min_sleep_time
-                wait_time = 0 if self.paused else self.min_sleep_time
-                self.update_window_name()
+                wait_time = 10 if self.paused else self.min_sleep_time
+                self.update_window_title()
             else:
                 wait_time = 1
             # wait until a key is pressed
@@ -647,7 +657,8 @@ class Animator:
                 self._frame_jump_key_input(key)
             # detect if user closed the window and close animator if so
             try:
-                if cv2.getWindowProperty("out", cv2.WND_PROP_VISIBLE) < 1:
+                pass
+                if cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE) < 1:
                     self.close()
             except cv2.error:
                 self.close()
@@ -660,11 +671,11 @@ class Animator:
                 self.close()
             case 32:  # SPACE (pause/play)
                 self.paused = not self.paused
-                self.update_window_name()
+                self.update_window_title()
             case 100:  # D (next fame, only if paused)
                 if self.paused and self.renderer.frame_is_ready:
                     self.renderer.pos += 1
-                    self.update_window_name()
+                    self.update_window_title()
             case 68:  # SHIFT + D (jump to end, only if paused)
                 if self.paused and self.renderer.frame_is_ready:
                     self.renderer.jump_to_end()
@@ -677,26 +688,26 @@ class Animator:
             case 101:  # E (jump forward 1 second, only if paused)
                 if self.paused and self.renderer.frame_is_ready:
                     self.renderer.pos += self.renderer.fps
-                    self.update_window_name()
+                    self.update_window_title()
             case 69:  # SHIFT + E (jump forward 3 seconds, only if paused)
                 if self.paused and self.renderer.frame_is_ready:
                     self.renderer.pos += self.renderer.fps * 3
-                    self.update_window_name()
+                    self.update_window_title()
             case 113:  # Q (jump backward 1 second, only if paused)
                 if self.paused and self.renderer.frame_is_ready:
                     self.renderer.pos -= self.renderer.fps
-                    self.update_window_name()
+                    self.update_window_title()
             case 81:  # SHIFT + Q (jump backward 3 seconds, only if paused)
                 if self.paused and self.renderer.frame_is_ready:
                     self.renderer.pos -= self.renderer.fps * 3
-                    self.update_window_name()
+                    self.update_window_title()
             case 119:  # W (increase sleep time by 1 millisecond)
                 self.min_sleep_time += 1
-                self.update_window_name()
+                self.update_window_title()
             case 115:  # S (decrease sleep time by 1 millisecond)
                 if self.min_sleep_time > 1:
                     self.min_sleep_time -= 1
-                    self.update_window_name()
+                    self.update_window_title()
             case 106:  # J (enter jump mode, only if paused)
                 if self.paused:
                     self.text_entry = "0"
@@ -719,7 +730,7 @@ class Animator:
                 self.renderer.show_events = not self.renderer.show_events
                 self._refresh_layers_str()
             case other:  # everything else (print that the entered key was unrecognized)
-                print(f"Unrecognized key: '{chr(other)}'")
+                print(f"Unrecognized key: '{chr(other)}'({other})")
 
     def _frame_jump_key_input(self, key: int):
         match key:
@@ -734,7 +745,9 @@ class Animator:
                 self.text_entry = self.text_entry[:-1]
                 if not self.text_entry:
                     self.text_entry = "0"
-            case _:  # everything else (if it's a digit, add to current frame text entry, otherwise print key was unrecognized)
+            case (
+                _
+            ):  # everything else (if it's a digit, add to current frame text entry, otherwise print key was unrecognized)
                 # check every digit (0-9)
                 for k in range(10):
                     # check if it matches entered key
@@ -750,37 +763,39 @@ class Animator:
                 if self.text_entry.startswith("0") and self.text_entry != "0":
                     self.text_entry = self.text_entry[1:]
 
-    def update_window_name(self):
+    def update_window_title(self):
         """Update the OpenCV window title based on current state."""
         # set window title based on animators internal state
         if self.state == self.FRAME_JUMP:
             # if in frame jump mode:
             # title: <name of video> (jump to: <user frame entry><', Clipped' if in clipped mode>) <layers selection>
             cv2.setWindowTitle(
-                "out",
+                self.window_name,
                 f"{self.scene.video_data.name} (jump to: {self.text_entry}{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
         elif self.paused:
             # if animator is paused
             # title: <name of video> (frame: <current frame><', Clipped' if in clipped mode>) <layers selection>
             cv2.setWindowTitle(
-                "out",
+                self.window_name,
                 f"{self.scene.video_data.name} (frame: {self.renderer.pos}{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
         else:
             # if playing:
             # title: <name of video> (sleep: <time between frames> ms<', Clipped' if in clipped mode>) <layers selection>
             cv2.setWindowTitle(
-                "out",
+                self.window_name,
                 f"{self.scene.video_data.name} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
             )
 
     def close(self):
         """Close the animator and destroy the window."""
-        self.open = False
-        self.renderer.close()
-        # ensure all windows close
-        try:
-            cv2.destroyWindow("out")
-        except cv2.error:
-            pass
+        if self.open:
+            self.open = False
+            self.renderer.close()
+            # ensure all windows close
+            try:
+                cv2.getWindowProperty(self.window_name, cv2.WND_PROP_VISIBLE)
+                cv2.destroyWindow(self.window_name)
+            except cv2.error:
+                pass

@@ -9,6 +9,7 @@ Metrics
 -------
 .. automodule:: hornero_event_classifier.classifiers.metrics
    :members:
+   :no-value:
 
 Base Classifiers
 ----------------

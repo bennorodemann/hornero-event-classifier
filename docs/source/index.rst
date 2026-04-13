@@ -16,3 +16,4 @@ Documentation version: |release|
    :caption: API Reference
 
    api/index
+   usage/index

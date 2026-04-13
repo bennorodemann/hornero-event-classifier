@@ -104,6 +104,9 @@ class Metric(IntEnum):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}.{self.name}"
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class MetricRegistry[O]:
     """A registry class for :py:class:`Metric` logic functions."""
@@ -221,7 +224,11 @@ def get_avg_ring_real(_: list[BBox], all_rings: list[tuple[BBox, ...]]) -> list[
 @metric_func_registry.register(Metric.AVG_X_SCORE, req.local_ring_x_pos)
 def get_avg_x_score(_: list[BBox], all_positions: list[tuple[float, ...]]) -> list[float]:
     return [
-        sum(2 * abs(ring_pos - 0.5) for ring_pos in ring_positions) / len(ring_positions) if ring_positions else float("nan")
+        (
+            sum(2 * abs(ring_pos - 0.5) for ring_pos in ring_positions) / len(ring_positions)
+            if ring_positions
+            else float("nan")
+        )
         for ring_positions in all_positions
     ]
 
