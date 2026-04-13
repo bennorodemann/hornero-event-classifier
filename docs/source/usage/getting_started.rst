@@ -44,7 +44,7 @@ The repository does not include these directories or files by default, so create
 files under ``data/YOLO/`` before running the pipeline.
 
 Video metadata
-----------------
+--------------
 
 Most scripts depend on ``data/video_metadata.json``. Generate this file from your YOLO CSV files and the corresponding
 video files with:
@@ -146,7 +146,7 @@ It applies a generalized linear model to selected metrics and provides a startin
 If no metrics are provided, the script uses all available metrics.
 
 Customizing defaults
--------------------
+--------------------
 
 Default file paths are configured in ``run/defaults.py``. Update ``VIDEOS_ROOT_PATH`` or other constants there if your
 local dataset layout differs from the repository defaults.

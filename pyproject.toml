@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hornero_event_classifier"
-version = "0.1.0"
+version = "1.0.0"
 description = "Event processing and grading utilities."
 requires-python = ">=3.12"
 dependencies = [
@@ -15,15 +15,7 @@ dependencies = [
     "scikit-learn",
     "ffmpeg-python", 
     "opencv-python",
+    "pylint",
     "sphinx",
+    "sphinx_rtd_theme",
 ]
-
-# [project.scripts]
-# classify = "run.classify"
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-# include = ["eventer*"]

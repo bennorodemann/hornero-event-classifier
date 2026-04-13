@@ -367,7 +367,7 @@ class Renderer:
             for bird in frame.birds:
                 text = f"{bird.item_obj.id}.{bird.item_obj.sub_id}({bird.conf:.02f})"
                 self.animate_bbox(
-                    bird, img, (0, 255, 0 if bird.real else 255), text=text, show_center=True, text_anchor="sw"
+                    bird, img, (0, 255, 0 if bird.real else 255), text=text, show_center=True, text_anchor="nw"
                 )
                 # if rings are also shown and local_rings loaded in metrics_cache: draw lines between the bird and all rings
                 if self.show_rings:
@@ -388,7 +388,7 @@ class Renderer:
             # show all event bboxes in black
             for event in frame.events:
                 text = f"{event.item_obj.id}.{event.item_obj.sub_id}: {event.item_obj.subject.value}"
-                self.animate_bbox(event, img, (0, 0, 0), text_color=(255, 255, 255), text=text, text_anchor="se")
+                self.animate_bbox(event, img, (0, 0, 0), text_color=(255, 255, 255), text=text, text_anchor="ne")
 
     def animate_bbox(
         self,
@@ -644,7 +644,7 @@ class Animator:
                         self.renderer.pos += 1
                         self.last_render_time = time.time()
                 # if animator is paused, sleep until next key command, if playing, sleep for at least min_sleep_time
-                wait_time = 10 if self.paused else self.min_sleep_time
+                wait_time = 100 if self.paused else self.min_sleep_time
                 self.update_window_title()
             else:
                 wait_time = 1
