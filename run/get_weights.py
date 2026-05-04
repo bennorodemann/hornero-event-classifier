@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from classify import classify
 from defaults import SEGMENTS_CACHE_PATH, METADATA_FILE, BORIS_FILE
-
+import json
 from hornero_event_classifier import (
     Metric,
     ThresholdClassifier,
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     if args.refresh or SEGMENTS_CACHE_PATH is None or not SEGMENTS_CACHE_PATH.exists():
         for video_metadata in metadata_repo.values():
             classifier = ThresholdClassifier(list(Metric), [1 for _ in Metric])
-            _, scene = classify(video_metadata, classifier)
+            _, scene = classify(video_metadata, classifier, remove_low_conf=0)
             if scene.segments is not None:
                 segment_dfs.append(scene.segments.as_df(video_metadata.name))
         segment_data: pd.DataFrame = pd.concat(segment_dfs)
@@ -63,9 +63,14 @@ if __name__ == "__main__":
     boris = pd.read_csv(BORIS_FILE)
 
     (threshold, weights), results = recommend_weights(args.metrics, segment_data, boris)
-
+    metric_strs = [metric.name for metric in args.metrics]
+    simple_weights = {k.name: v for k, v in weights.items()}
     # Print results
-    print(f"weights: {weights}")
+    print(f"weights: {json.dumps(simple_weights)}")
     print(f"threshold: {threshold}")
-    print(results[[col for col in results.columns]][results["real_subject"] != results["calc_subject"]])
+    print(
+        results[[col for col in results.columns if (col in metric_strs or not metric_strs) or col.islower()]][
+            results["real_subject"] != results["calc_subject"]
+        ]
+    )
     print(f"accuracy: {(results["real_subject"] == results["calc_subject"]).mean()}")

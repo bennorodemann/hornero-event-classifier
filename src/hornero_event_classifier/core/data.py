@@ -249,7 +249,7 @@ class Item:
     :type ignore: bool"""
 
     type: ItemType
-    id: int  # MAYBE: id could come from count with extra optional yolo_id?
+    id: int
     sub_id: int = 0
     subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
     ignore: bool = False
@@ -561,7 +561,8 @@ class Frame:
     @property
     def ignored(self) -> Generator[BBox]:
         """
-        A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` where :py:attr:`Item.ignore is True <Item.ignore>`."""
+        A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` where :py:attr:`Item.ignore is True <Item.ignore>`.
+        """
         return self._bboxes.get(ignored=True)
 
     def add_bbox(self, bbox: BBox):

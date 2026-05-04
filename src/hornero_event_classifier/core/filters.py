@@ -2,13 +2,15 @@
 
 from typing import Callable
 
-from hornero_event_classifier.core.data import BBox
+from hornero_event_classifier.core.data import BBox, Item
 
 #: Callable signature for filters used by :py:class:`~hornero_event_classifier.core.scene.Scene`.
-type FilterFunc = Callable[[BBox, BBox], bool]
+type BoxFilterFunc = Callable[[BBox, BBox], bool]
+type ItemFilterFunc = Callable[[Item], bool]
+type FilterFunc = BoxFilterFunc | ItemFilterFunc
 
 
-def make_gap_filter(gap: int) -> FilterFunc:
+def make_gap_filter(gap: int) -> BoxFilterFunc:
     """Create a filter that passes when the frame gap between boxes is at least ``gap``.
 
     :param gap: Minimum number of frames between two boxes.
@@ -38,7 +40,7 @@ def frame_touch_filter(box1: BBox, box2: BBox) -> bool:
     return box1.touching_boundary(5) or box2.touching_boundary(5)
 
 
-def make_buffer_filter(buffer: int) -> FilterFunc:
+def make_buffer_filter(buffer: int) -> BoxFilterFunc:
     """Create a filter that excludes boxes near the start or end of an item.
 
     :param buffer: Number of frames to exclude on both ends of an item's range.
@@ -64,11 +66,22 @@ def boundary_filter(box1: BBox, _: BBox) -> bool:
     :rtype: bool
     """
     return any(
-        box1.frame in (bird.item_obj.start, bird.item_obj.end) for bird in box1.frame_obj.birds if bird is not box1.item_obj
+        box1.frame in (bird.item_obj.start, bird.item_obj.end)
+        for bird in box1.frame_obj.birds
+        if bird is not box1.item_obj
     )
 
 
-def invert_filter(func: FilterFunc) -> FilterFunc:
+def make_area_filter(min_area: float) -> ItemFilterFunc:
+    def area_filter(item: Item) -> bool:
+        boxes = list(item.boxes.get_all())
+        area = sum([box.area for box in boxes]) / len(boxes)
+        return area <= min_area
+
+    return area_filter
+
+
+def invert_filter[T: FilterFunc](func: T) -> T:
     """Return a filter that negates the result of another filter.
 
     :param func: Filter function to invert.
@@ -77,7 +90,7 @@ def invert_filter(func: FilterFunc) -> FilterFunc:
     :rtype: FilterFunc
     """
 
-    def inverted_filter(box1: BBox, box2: BBox) -> bool:
-        return not func(box1, box2)
+    def inverted_filter(*args) -> bool:
+        return not func(*args)
 
-    return inverted_filter
+    return inverted_filter  # type: ignore

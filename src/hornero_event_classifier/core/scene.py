@@ -36,7 +36,7 @@ from hornero_event_classifier.core.collections import (
 )
 from hornero_event_classifier.core.data import BBox, Frame, Item
 from hornero_event_classifier.core.enums import ItemType, Subject
-from hornero_event_classifier.core.filters import FilterFunc
+from hornero_event_classifier.core.filters import BoxFilterFunc, ItemFilterFunc, FilterFunc
 from hornero_event_classifier.core.types import ResultDict, YOLOData, type_yolo_data
 
 if TYPE_CHECKING:
@@ -140,14 +140,14 @@ class Scene:
 
         return self
 
-    def _combine_filters(self, funcs: tuple[FilterFunc, ...]) -> FilterFunc:
+    def _combine_filters[T: FilterFunc](self, funcs: tuple[T, ...]) -> T:
         # Return a filter function that only passes when all provided filters pass.
-        def combo_filter(box1: BBox, box2: BBox) -> bool:
-            return all(func(box1, box2) for func in funcs)
+        def combo_filter(*args) -> bool:
+            return all(func(*args) for func in funcs)
 
-        return combo_filter
+        return combo_filter  # type: ignore
 
-    def split_items(self, filter_func: FilterFunc | Iterable[FilterFunc], *item_types: ItemType) -> Self:
+    def split_items(self, filter_func: BoxFilterFunc | Iterable[BoxFilterFunc], *item_types: ItemType) -> Self:
         """Split items when consecutive :py:class:`.BBox`\\s match a filter.
 
         This is only applied to :py:class:`.Item`\\s of :py:class:`.ItemType`\\s in ``item_types`` (if none are passed then all
@@ -183,7 +183,7 @@ class Scene:
                 self.items.add(item)
         return self
 
-    def fill_gaps(self, filter_func: Optional[FilterFunc | Iterable[FilterFunc]], *item_types: ItemType) -> Self:
+    def fill_gaps(self, filter_func: Optional[BoxFilterFunc | Iterable[BoxFilterFunc]], *item_types: ItemType) -> Self:
         """Fill missing frames with interpolated :py:class:`BBox`\\s.
 
         This is only applied to :py:class:`.Item`\\s of :py:class:`.ItemType`\\s in ``item_types`` (if none are passed then all
@@ -254,6 +254,16 @@ class Scene:
                     )
             # release any cached new frame so the next Item can use them
             frame_cache.release()
+        return self
+
+    def ignore_items(self, filter_func: ItemFilterFunc | Iterable[ItemFilterFunc], *item_types: ItemType) -> Self:
+        # if there are multiple filter functions, combine them into a single function (AND-wise)
+        if isinstance(filter_func, Iterable):
+            filter_func = self._combine_filters(tuple(filter_func))
+
+        for item in self.items.get(*item_types):
+            item.ignore = filter_func(item)
+
         return self
 
     def _merge_birds(self, overlap: float, correlation: float, exists_only: bool = False) -> Self:
@@ -333,7 +343,9 @@ class Scene:
             :py:class:`~hornero_event_classifier.classifiers.Classifier`
         """
         # create segments from bird items
-        self.segments = SegmentCollection(self.items.get(ItemType.BIRD), classifier.metrics, segment_length=segment_length)
+        self.segments = SegmentCollection(
+            self.items.get(ItemType.BIRD), classifier.metrics, segment_length=segment_length
+        )
         # train classifier if needed
         classifier.train(self.segments)
         # get classifications

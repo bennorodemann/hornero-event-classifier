@@ -101,7 +101,7 @@ def event_plot_open_vid(_, video_metadata: VideoMetadata, mouse_pos: tuple[float
         return
 
     # Classify the video scene without progress display
-    _, scene = classify(video_metadata, load_default_classifier(), show_progress=False)
+    _, scene = classify(video_metadata, load_default_classifier(), show_progress=False, remove_low_conf=0)
 
     # Animate starting from the clicked frame position, scaled up and paused
     Thread(target=animate, args=(scene,), kwargs={"scale": 2, "frame": int(mouse_pos[0]), "auto_play": False}).start()

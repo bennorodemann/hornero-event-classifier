@@ -26,6 +26,7 @@ class ItemType(StrEnum):
 
 ItemType.MUD._add_value_alias_("beak_mud")
 ItemType.OTHER._add_value_alias_("cowbird")
+ItemType.OTHER._add_value_alias_("another_bird")
 
 
 class Subject(Enum):
