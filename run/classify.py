@@ -1,12 +1,28 @@
 """
-Video classification script for hornero event detection.
+Core video classification pipeline for hornero event detection.
 
-This module provides functionality to classify video segments using trained classifiers,
-process video metadata, and generate event detection results. It supports batch
-processing of multiple videos and integrates with the hornero event classifier framework.
+This module implements the end-to-end processing pipeline used to detect
+and classify events in videos based on object detections and temporal
+heuristics. It orchestrates multiple stages of processing, including:
+
+- Scene construction from raw video metadata
+- Pre-processing of detections (gap splitting, gap filling, filtering)
+- Removal of low-confidence detections
+- Metric-based classification using a configurable classifier
+- Post-processing to merge and clean up detected events
+
+The primary entry point is :func:`classify`, which takes a
+:class:`~hornero_event_classifier.VideoMetadata` instance and a trained
+:class:`~hornero_event_classifier.Classifier`, and returns both:
+- A pandas DataFrame of classification results
+- A fully processed :class:`~hornero_event_classifier.Scene` object
+
+This module can also be executed as a script to batch-process multiple
+videos, persist results to disk, and optionally visualize detected events.
+
+The default classifier configuration is loaded via
+:func:`load_default_classifier`, which reads weights from a JSON file.
 """
-
-# FIXME: module doc string ^
 
 import json
 import time
@@ -122,8 +138,8 @@ def classify(
             # Fill all gaps
             s.fill_gaps(None, ItemType.BIRD)
 
-    # Apply buffer and boundary filters to bird detections
-    # FIXME
+    # For each items start and end frame, cut all other items in the same frame unless that item would start or end
+    # within 100 frames
     s.split_items((filters.make_buffer_filter(100), filters.boundary_filter), ItemType.BIRD)
 
     # Remove low confidence bird detections
@@ -166,13 +182,11 @@ parser.add_argument(
 )
 parser.add_argument("--min-event-len", default=100, type=int, help="Minimum length for events to keep (default: 100).")
 if __name__ == "__main__":
-    """
-    Main execution block for batch video classification.
-
-    This script processes all videos in the metadata repository, classifies events,
-    saves results to CSV, and displays an interactive event plot. It supports
-    resuming interrupted processing by checking for existing results.
-    """
+    # Main execution block for batch video classification.
+    #
+    # This script processes all videos in the metadata repository, classifies events,
+    # saves results to CSV, and displays an interactive event plot. It supports
+    # resuming interrupted processing by checking for existing results.
     import matplotlib.pyplot as plt
     from animate import event_plot_open_vid
 
