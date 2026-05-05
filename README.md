@@ -1,7 +1,7 @@
-# Getting Started
+# Hornero Event Classifier
 
 > [!IMPORTANT] 
-> There are several steps that need to be taken before you can start classifying YOLO results.Read this document once 
+> There are several steps that need to be taken before you can start classifying YOLO results. Read this document once 
 > before you begin.
 
 ## Installation
@@ -132,9 +132,9 @@ Animation options:
 Use `run/get_weights.py` to estimate weights for the threshold classifier from validation data.
 It applies a generalized linear model to selected metrics and provides a starting point for weight tuning.
 
-.. code-block:: console
-
-    python run/get_weights.py
+```bash
+python run/get_weights.py
+```
 
 If no metrics are provided, the script uses all available metrics.
 
