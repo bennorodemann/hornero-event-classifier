@@ -3,7 +3,12 @@
 Designed for simple, interpretable baselines in internal pipelines.
 """
 
-from typing import Iterable, Sequence, Self
+from typing import Iterable, Sequence
+
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -42,10 +47,10 @@ class ThresholdClassifier(Classifier):
         metrics, weights = zip(*metric_weights.items())
         return cls(metrics, weights, threshold)
 
-    def classify_matrix(self, matrix: NDArray[np.floating]) -> NDArray[np.bool]:
+    def classify_matrix(self, matrix: NDArray[np.floating]) -> NDArray[np.bool_]:
         """Classify rows of the metric matrix using a weighted sum."""
         return (matrix * self.weights).sum(axis=1) > self.threshold
 
-    def clean_seq(self, segments: tuple[Sequence, ...], raw_classifications: NDArray[np.bool]) -> NDArray[np.bool]:
+    def clean_seq(self, segments: tuple[Sequence, ...], raw_classifications: NDArray[np.bool_]) -> NDArray[np.bool_]:
         """Return the raw classifications unchanged."""
         return raw_classifications

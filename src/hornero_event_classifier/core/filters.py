@@ -1,13 +1,14 @@
 """Filter function helpers for :py:class:`BBox` comparisons."""
 
-from typing import Callable
+from typing import Callable, TypeAlias, TypeVar
 
 from hornero_event_classifier.core.data import BBox, Item
 
 #: Callable signature for filters used by :py:class:`~hornero_event_classifier.core.scene.Scene`.
-type BoxFilterFunc = Callable[[BBox, BBox], bool]
-type ItemFilterFunc = Callable[[Item], bool]
-type FilterFunc = BoxFilterFunc | ItemFilterFunc
+BoxFilterFunc: TypeAlias = Callable[[BBox, BBox], bool]
+ItemFilterFunc: TypeAlias = Callable[[Item], bool]
+FilterFunc: TypeAlias = BoxFilterFunc | ItemFilterFunc
+TFilter = TypeVar("TFilter", bound=FilterFunc)
 
 
 def make_gap_filter(gap: int) -> BoxFilterFunc:
@@ -81,7 +82,7 @@ def make_area_filter(min_area: float) -> ItemFilterFunc:
     return area_filter
 
 
-def invert_filter[T: FilterFunc](func: T) -> T:
+def invert_filter(func: TFilter) -> TFilter:
     """Return a filter that negates the result of another filter.
 
     :param func: Filter function to invert.

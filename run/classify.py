@@ -82,6 +82,9 @@ def classify(
     fill_bird_gaps: bool = True,
     dont_fill_at_edge: bool = True,
     remove_low_conf: float = 0.7,
+    mud_conf: float | None = 0.5,
+    mud_min_frames: int = 50,
+    mud_max_gap: int = 3,
     combine_events_within: int = 120,
     min_event_len: int = 100,
 ) -> tuple[pd.DataFrame, Scene]:
@@ -101,7 +104,10 @@ def classify(
         max_bird_gap: Maximum gap size to split bird detections (default: 100).
         fill_bird_gaps: Whether to fill gaps in bird detections (default: True).
         dont_fill_at_edge: Whether to avoid filling gaps at video edges (default: True).
-        remove_low_conf: Confidence threshold for removing low-confidence detections (default: 0.7).
+        remove_low_conf: Confidence threshold for removing low-confidence bird detections (default: 0.7).
+        mud_conf: Confidence threshold for removing low-confidence mud detections (default: 0.5). Pass None to disable.
+        mud_min_frames: Minimum mud run length needed to mark an event as mud (default: 50).
+        mud_max_gap: Maximum gap size bridged inside a mud run when exporting events (default: 3).
         combine_events_within: Frame distance to combine nearby events (default: 120).
         min_event_len: Minimum length for events to keep (default: 100).
 
@@ -145,6 +151,10 @@ def classify(
     # Remove low confidence bird detections
     s.remove_low_conf(remove_low_conf, ItemType.BIRD)
 
+    # Remove low confidence mud detections if threshold is set
+    if mud_conf is not None:
+        s.remove_low_conf(mud_conf, ItemType.MUD)
+
     # Classification stage
     print_func(f"\r\033[K{filename}: classifying...", end="")
 
@@ -155,7 +165,7 @@ def classify(
     print_func(f"\r\033[K{filename}: done ({time.time()-t0:.2f} s)")
 
     # Return results dataframe and processed scene
-    return s.get_results(), s
+    return s.get_results(mud_min_frames=mud_min_frames, mud_max_gap=mud_max_gap), s
 
 
 parser = ArgumentParser()
@@ -176,6 +186,24 @@ parser.add_argument(
     default=0.7,
     type=float,
     help="Confidence threshold for removing low-confidence detections (default: 0.7).",
+)
+parser.add_argument(
+    "--mud-conf",
+    default=0.5,
+    type=float,
+    help="Confidence threshold for removing low-confidence mud detections (default: 0.2).",
+)
+parser.add_argument(
+    "--mud-min-frames",
+    default=30,
+    type=int,
+    help="Minimum mud run length needed to mark an event as mud (default: 50).",
+)
+parser.add_argument(
+    "--mud-max-gap",
+    default=10,
+    type=int,
+    help="Maximum gap size bridged inside a mud run when exporting events (default: 3).",
 )
 parser.add_argument(
     "--combine-events-within", default=120, type=int, help="Frame distance to combine nearby events (default: 120)."
@@ -223,6 +251,9 @@ if __name__ == "__main__":
                 fill_bird_gaps=not args.no_fill,
                 dont_fill_at_edge=not args.fill_at_edge,
                 remove_low_conf=args.remove_low_conf,
+                mud_conf=args.mud_conf,
+                mud_min_frames=args.mud_min_frames,
+                mud_max_gap=args.mud_max_gap,
                 combine_events_within=args.combine_events_within,
                 min_event_len=args.min_event_len,
             )
@@ -234,7 +265,7 @@ if __name__ == "__main__":
         # Print total processing time
         print(f"total time: {time.time()-start_time}s")
 
-    if not args.no_plot:
+    if not args.no_plot and RESULTS_FILE.exists():
         # Read dataframe of all results
         all_results = pd.read_csv(RESULTS_FILE)
 

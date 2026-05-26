@@ -3,20 +3,14 @@
 This package aggregates the public API used in internal workflows.
 """
 
-from hornero_event_classifier import tools
-from hornero_event_classifier.classifiers import Classifier, Metric, SegmentCollection, Sequence, ThresholdClassifier
-from hornero_event_classifier.core import (
-    BBox,
-    Frame,
-    Item,
-    ItemType,
-    Scene,
-    filters,
-    VideoMetadata,
-    gen_metadata,
-    read_metadata,
-    write_metadata,
-)
+from hornero_event_classifier.classifiers.base import Classifier, SegmentCollection, Sequence
+from hornero_event_classifier.classifiers.metrics import Metric
+from hornero_event_classifier.classifiers.threshold import ThresholdClassifier
+from hornero_event_classifier.core import filters
+from hornero_event_classifier.core.data import BBox, Frame, Item
+from hornero_event_classifier.core.enums import ItemType
+from hornero_event_classifier.core.scene import Scene
+from hornero_event_classifier.core.video_metadata import VideoMetadata, gen_metadata, read_metadata, write_metadata
 
 __all__ = [
     "Scene",
@@ -30,9 +24,16 @@ __all__ = [
     "BBox",
     "Frame",
     "Item",
-    "tools",
     "VideoMetadata",
     "gen_metadata",
     "read_metadata",
     "write_metadata",
 ]
+
+
+def __getattr__(name: str):
+    if name == "tools":
+        from hornero_event_classifier import tools
+
+        return tools
+    raise AttributeError(name)

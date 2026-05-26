@@ -1,6 +1,17 @@
 """Enum types used across the core module."""
 
-from enum import Enum, StrEnum, auto
+from enum import Enum, auto
+
+try:
+    from enum import StrEnum
+except ImportError:  # pragma: no cover - Python < 3.11
+    class StrEnum(str, Enum):
+        """Python 3.10-compatible fallback for :class:`enum.StrEnum`."""
+
+        @staticmethod
+        def _generate_next_value_(name, start, count, last_values):
+            del start, count, last_values
+            return name.lower()
 
 
 class ItemType(StrEnum):
@@ -12,6 +23,8 @@ class ItemType(StrEnum):
     """Metal leg ring."""
     RING_PLASTIC = auto()
     """Plastic leg ring."""
+    RING = auto()
+    """Generic ring (unspecified type)."""
     MUD = auto()
     """Mud present on the bird. Value aliases: :code:`"beak_mud"`."""
     BEAK_MUD = MUD
@@ -23,10 +36,14 @@ class ItemType(StrEnum):
     COWBIRD = OTHER
     """Alias for :py:attr:`ItemType.OTHER` when item is a cowbird."""
 
-
-ItemType.MUD._add_value_alias_("beak_mud")
-ItemType.OTHER._add_value_alias_("cowbird")
-ItemType.OTHER._add_value_alias_("another_bird")
+    @classmethod
+    def _missing_(cls, value):
+        alias_map = {
+            "beak_mud": cls.MUD,
+            "cowbird": cls.OTHER,
+            "another_bird": cls.OTHER,
+        }
+        return alias_map.get(value)
 
 
 class Subject(Enum):
@@ -39,6 +56,10 @@ class Subject(Enum):
     NO_RING = "no_ring"
     """Unringed bird. Value aliases: :code:`False`."""
 
-
-Subject.RING._add_value_alias_(True)
-Subject.NO_RING._add_value_alias_(False)
+    @classmethod
+    def _missing_(cls, value):
+        alias_map = {
+            True: cls.RING,
+            False: cls.NO_RING,
+        }
+        return alias_map.get(value)

@@ -26,7 +26,7 @@ METADATA_FILE: Path = DATA_FOLDER / "video_metadata.json"
 RESULTS_FILE: Path = DATA_FOLDER / "hec_output.csv"
 
 # Root directory for video files (organized by nest subdirectories)
-VIDEOS_ROOT_PATH: Path = Path.home() / "Videos/videos_BORIS"
+VIDEOS_ROOT_PATH: Path = Path.home() / "/media/alexchan/MSc Lucio/ValidationVideos/videos"
 
 # Cache of raw segment metric values
 SEGMENTS_CACHE_PATH = DATA_FOLDER / "segment_cache.csv"

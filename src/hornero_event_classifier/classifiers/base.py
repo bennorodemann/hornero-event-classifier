@@ -11,7 +11,6 @@ from typing import (
     Callable,
     Iterable,
     Optional,
-    Self,
     Sequence,
 )
 
@@ -19,12 +18,18 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
+
 from hornero_event_classifier.classifiers.dependencies import Dependency
 from hornero_event_classifier.classifiers.metrics import (
     Metric,
     metric_func_registry,
 )
-from hornero_event_classifier.core import BBox, Item, Subject
+from hornero_event_classifier.core.data import BBox, Item
+from hornero_event_classifier.core.enums import Subject
 
 
 class ItemSegment:  # pylint: disable=too-many-instance-attributes

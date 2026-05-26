@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, Self, TypedDict
+from typing import TYPE_CHECKING, Protocol, TypedDict
+
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     from hornero_event_classifier.core.enums import ItemType
@@ -70,7 +75,7 @@ class ResultDict(TypedDict):
     start_frame: int
     #: the frame where the event ends
     end_frame: int
-    #: if the bird had mud (currently always :code:`False`)
+    #: if mud was detected in any frame of the event
     mud: bool
 
 

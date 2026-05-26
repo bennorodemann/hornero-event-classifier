@@ -14,7 +14,7 @@ from argparse import ArgumentParser
 from typing import Collection
 
 from hornero_event_classifier import read_metadata, VideoMetadata
-from hornero_event_classifier.tools import validate_events, event_validation_plot
+from hornero_event_classifier.tools import validate_events, event_validation_plot, mud_stats
 
 import matplotlib.pyplot as plt
 from animate import event_plot_open_vid
@@ -124,6 +124,14 @@ def validate(
     # Print results if requested
     if print_results:
         print(event_validation_str(results, long_print))
+        stats = mud_stats(yolo_data, boris_data, overlap=overlap_threshold)
+        print(
+            f"\nMud detection ({stats['matched']} matched events):\n"
+            f"\tTP: {stats['mud_tp']}, TN: {stats['mud_tn']}, FP: {stats['mud_fp']}, FN: {stats['mud_fn']}\n"
+            f"\tAccuracy: {stats['accuracy']:.4f}\n"
+            f"\tPrecision: {stats['precision']:.4f}\n"
+            f"\tRecall: {stats['recall']:.4f}"
+        )
 
     # Display interactive plot if requested
     if plot:

@@ -9,7 +9,11 @@ import json
 from typing import Any, Iterable
 from dataclasses import dataclass, asdict
 from pathlib import Path
-import ffmpeg
+
+try:
+    import ffmpeg
+except ImportError:  # pragma: no cover - optional at runtime when only reading metadata
+    ffmpeg = None
 
 
 @dataclass(frozen=True)
@@ -63,6 +67,8 @@ def gen_metadata(data: Iterable[tuple[str | Path, str | Path]]) -> dict[str, Vid
     :raises FileNotFoundError: If a YOLO or video file path does not exist.
     :raises ffmpeg.Error: If ``ffprobe`` fails to read video metadata.
     """
+    if ffmpeg is None:
+        raise ImportError("ffmpeg-python is required to generate metadata")
     out: dict[str, VideoMetadata] = {}
     for yolo, video in data:
         yolo = Path(yolo)

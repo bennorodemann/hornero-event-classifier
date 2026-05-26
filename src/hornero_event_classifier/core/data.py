@@ -8,10 +8,14 @@ from typing import (
     TYPE_CHECKING,
     Generator,
     Iterable,
-    Self,
     Sequence,
 )
 from itertools import count
+
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
 
 from hornero_event_classifier.core.enums import ItemType, Subject
 from hornero_event_classifier.core.collections import FrameCache, FrameIndexer, ItemTypedCollection
@@ -310,7 +314,9 @@ class Item:
         :seealso: :py:attr:`Item.key`
         """
         _, item_type, ids = key.split("-")
-        main_id, sub_id = (int(id_) for id_ in ids.split("."))
+        ids_parts = ids.split(".")
+        main_id = int(ids_parts[0])
+        sub_id = int(ids_parts[1]) if len(ids_parts) > 1 else 0
         return cls(type=ItemType(item_type), id=main_id, sub_id=sub_id)
 
     @classmethod
@@ -448,9 +454,9 @@ class Item:
         return max(min(self.end, other.end) - max(self.start, other.start) + 1, 0)
 
     def is_ring(self) -> bool:
-        """Returns ``True`` if ``Item.type`` is :py:attr:`.ItemType.RING_METAL` or :py:attr:`.ItemType.RING_PLASTIC`. ``False``
-        otherwise."""
-        return self.type in (ItemType.RING_METAL, ItemType.RING_PLASTIC)
+        """Returns ``True`` if ``Item.type`` is :py:attr:`.ItemType.RING_METAL`, :py:attr:`.ItemType.RING_PLASTIC`, or
+        :py:attr:`.ItemType.RING`. ``False`` otherwise."""
+        return self.type in (ItemType.RING_METAL, ItemType.RING_PLASTIC, ItemType.RING)
 
     def cut_at(self, frame: int) -> Self:
         """Split ``Item`` in two at specified ``frame``. The original instance retains :py:class:`BBox`\\s ``< frame``.
@@ -542,9 +548,9 @@ class Frame:
 
     @property
     def rings(self) -> Generator[BBox]:
-        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.RING_METAL` or
-        :py:attr:`ItemType.RING_PLASTIC` where :py:attr:`Item.ignore is False <Item.ignore>`."""
-        return self._bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC)
+        """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.RING_METAL`,
+        :py:attr:`ItemType.RING_PLASTIC`, or :py:attr:`ItemType.RING` where :py:attr:`Item.ignore is False <Item.ignore>`."""
+        return self._bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC, ItemType.RING)
 
     @property
     def mud(self) -> Generator[BBox]:

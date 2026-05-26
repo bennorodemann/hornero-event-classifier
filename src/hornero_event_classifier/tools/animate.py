@@ -12,7 +12,9 @@ from __future__ import annotations
 import time
 from pathlib import Path
 from threading import Thread, Condition
-from typing import TYPE_CHECKING, Callable, Literal, Optional, SupportsInt
+from typing import TYPE_CHECKING, Callable, Generic, Literal, Optional, SupportsInt, TypeAlias, TypeVar
+
+_T = TypeVar("_T")
 
 import cv2
 import numpy as np
@@ -25,7 +27,7 @@ from hornero_event_classifier.core.data import BBox, Frame, ItemType
 if TYPE_CHECKING:
     from hornero_event_classifier.core.scene import Scene
 
-type Color = tuple[int, int, int]
+Color: TypeAlias = tuple[int, int, int]
 
 
 class StateEvent:
@@ -77,7 +79,7 @@ class StateEvent:
                 self._cond.wait(timeout)
 
 
-class AutoRefresher[T]:
+class AutoRefresher(Generic[_T]):
     """A descriptor class that will automatically refresh the current frame when the attribute is set."""
 
     def __set_name__(self, owner: Renderer, name):
@@ -85,10 +87,10 @@ class AutoRefresher[T]:
         self.public_name = name
         self.private_name = "_" + name
 
-    def __get__(self, instance: Renderer, _=None) -> T:
+    def __get__(self, instance: Renderer, _=None) -> _T:
         return getattr(instance, self.private_name)
 
-    def __set__(self, instance: Renderer, value: T):
+    def __set__(self, instance: Renderer, value: _T):
         setattr(instance, self.private_name, value)
         if instance.paused:
             instance.trigger_render()
@@ -771,21 +773,21 @@ class Animator:
             # title: <name of video> (jump to: <user frame entry><', Clipped' if in clipped mode>) <layers selection>
             cv2.setWindowTitle(
                 self.window_name,
-                f"{self.scene.video_data.name} (jump to: {self.text_entry}{", Clipped" if self.clipped else ""}) {self.layers_str}",
+                f"{self.scene.video_data.name} (jump to: {self.text_entry}{', Clipped' if self.clipped else ''}) {self.layers_str}",
             )
         elif self.paused:
             # if animator is paused
             # title: <name of video> (frame: <current frame><', Clipped' if in clipped mode>) <layers selection>
             cv2.setWindowTitle(
                 self.window_name,
-                f"{self.scene.video_data.name} (frame: {self.renderer.pos}{", Clipped" if self.clipped else ""}) {self.layers_str}",
+                f"{self.scene.video_data.name} (frame: {self.renderer.pos}{', Clipped' if self.clipped else ''}) {self.layers_str}",
             )
         else:
             # if playing:
             # title: <name of video> (sleep: <time between frames> ms<', Clipped' if in clipped mode>) <layers selection>
             cv2.setWindowTitle(
                 self.window_name,
-                f"{self.scene.video_data.name} (sleep: {self.min_sleep_time} ms{", Clipped" if self.clipped else ""}) {self.layers_str}",
+                f"{self.scene.video_data.name} (sleep: {self.min_sleep_time} ms{', Clipped' if self.clipped else ''}) {self.layers_str}",
             )
 
     def close(self):

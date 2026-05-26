@@ -24,11 +24,11 @@ import csv
 import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, Optional, Self
+from typing import TYPE_CHECKING, Iterable, Optional, TypeVar
 
 import pandas as pd
 
-from hornero_event_classifier.classifiers import Classifier, SegmentCollection
+from hornero_event_classifier.classifiers.base import Classifier, SegmentCollection
 from hornero_event_classifier.core.collections import (
     DefaultSpawnDict,
     FrameIndexer,
@@ -41,6 +41,13 @@ from hornero_event_classifier.core.types import ResultDict, YOLOData, type_yolo_
 
 if TYPE_CHECKING:
     from hornero_event_classifier.core.video_metadata import VideoMetadata
+
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
+
+TFilter = TypeVar("TFilter", bound=FilterFunc)
 
 
 def _item_read_spawner(key: str) -> Item:
@@ -140,7 +147,7 @@ class Scene:
 
         return self
 
-    def _combine_filters[T: FilterFunc](self, funcs: tuple[T, ...]) -> T:
+    def _combine_filters(self, funcs: tuple[TFilter, ...]) -> TFilter:
         # Return a filter function that only passes when all provided filters pass.
         def combo_filter(*args) -> bool:
             return all(func(*args) for func in funcs)
@@ -403,17 +410,54 @@ class Scene:
             self.items.add(event)
         return self
 
-    def _get_result(self, item: Item) -> ResultDict:
+    def _event_has_mud(self, item: Item, min_frames: int = 1, max_gap: int = 0) -> bool:
+        """Return whether an event contains a sufficiently long mud run.
+
+        A mud run is a sequence of frames containing mud detections. Small holes in
+        the sequence can be bridged by setting ``max_gap`` above zero, which treats
+        short missing stretches as interpolated mud presence.
+        """
+        if min_frames <= 1 and max_gap <= 0:
+            return any(
+                frame_obj is not None and any(frame_obj.mud)
+                for frame_obj in (self.frames.get(frame_num, None) for frame_num in range(item.start, item.end + 1))
+            )
+
+        min_frames = max(1, min_frames)
+        max_gap = max(0, max_gap)
+        run_start: int | None = None
+        prev_mud_frame: int | None = None
+
+        for frame_num in range(item.start, item.end + 1):
+            frame_obj = self.frames.get(frame_num, None)
+            if frame_obj is None or not any(frame_obj.mud):
+                continue
+            if run_start is None:
+                run_start = frame_num
+            elif prev_mud_frame is not None and frame_num - prev_mud_frame - 1 > max_gap:
+                if prev_mud_frame - run_start + 1 >= min_frames:
+                    return True
+                run_start = frame_num
+            prev_mud_frame = frame_num
+
+        return (
+            run_start is not None
+            and prev_mud_frame is not None
+            and prev_mud_frame - run_start + 1 >= min_frames
+        )
+
+    def _get_result(self, item: Item, mud_min_frames: int = 1, mud_max_gap: int = 0) -> ResultDict:
         # convert Item to result csv dict entry
+        mud_detected = self._event_has_mud(item, min_frames=mud_min_frames, max_gap=mud_max_gap)
         return {
             "video_id": self.video_data.name,
             "subject": item.subject.value,
             "start_frame": item.start,
             "end_frame": item.end,
-            "mud": False,
+            "mud": mud_detected,
         }
 
-    def get_results(self) -> pd.DataFrame:
+    def get_results(self, mud_min_frames: int = 1, mud_max_gap: int = 0) -> pd.DataFrame:
         """Generate a ``pandas.DataFrame`` from created :py:attr:`.ItemType.Event` :py:class:`.Item`\\s.
 
         The output mimics the column layout from BORIS.
@@ -423,14 +467,17 @@ class Scene:
             - subject: "ring" or "no_ring"
             - start_frame: first frame in event
             - end_frame: last frame in event
-            - mud: always ``False``
+            - mud: ``True`` if the event contains a mud run of at least
+              ``mud_min_frames`` frames, allowing gaps up to ``mud_max_gap`` frames
 
         :return: Dataframe of found events.
         :rtype: pd.DataFrame
         :seealso: :py:meth:`Scene.define_events`
         """
         events = list(self.items.get(ItemType.EVENT))
-        return pd.DataFrame([self._get_result(event) for event in events])
+        return pd.DataFrame(
+            [self._get_result(event, mud_min_frames=mud_min_frames, mud_max_gap=mud_max_gap) for event in events]
+        )
 
     def write_to_csv(self, file_path: str | Path) -> Self:
         """Write dataframe from :py:meth:`Scene.get_results` directly to a CSV file.

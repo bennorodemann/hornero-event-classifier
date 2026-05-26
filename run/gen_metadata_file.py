@@ -15,7 +15,7 @@ from defaults import METADATA_FILE, VIDEOS_ROOT_PATH, YOLO_FOLDER
 from hornero_event_classifier import VideoMetadata, gen_metadata, write_metadata
 
 
-def video_sub_path(video_id: str) -> str:
+def video_sub_path(video_id: str,VIDEOS_ROOT_PATH) -> str:
     """
     Generate the subdirectory path for a video based on its ID.
 
@@ -28,15 +28,23 @@ def video_sub_path(video_id: str) -> str:
         Relative path string in format "nest/video_id.mp4".
     """
     # Extract nest identifier from video ID
-    nest = video_id.split("_", 1)[0]
-    return f"{nest}/{video_id}.mp4"
+    # nest = video_id.split("_", 1)[0]
+    # nest = "nest" #temp
+    # import ipdb; ipdb.set_trace()
+    vid = [vid for vid in VIDEOS_ROOT_PATH.glob("**/**") if video_id in str(vid)]
+        
+    return vid[0]
+    # return f"{nest}/{video_id}.mp4"
 
 
 # Collect all YOLO detection files from the YOLO folder
 yolo_files: list[Path] = [YOLO_FOLDER / file for file in os.listdir(YOLO_FOLDER)]
 
 # Generate corresponding video file paths from YOLO filenames
-video_files: list[Path] = [VIDEOS_ROOT_PATH / video_sub_path(file.stem.rsplit("_", 1)[0]) for file in yolo_files]
+
+video_files: list[Path] = [VIDEOS_ROOT_PATH / video_sub_path(file.stem.rsplit("_", 1)[0],VIDEOS_ROOT_PATH) for file in yolo_files]
+
+# import ipdb; ipdb.set_trace()
 
 
 def serializer(value: Any) -> Any:

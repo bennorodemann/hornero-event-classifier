@@ -7,10 +7,11 @@ from typing import (
     Any,
     Callable,
     Generator,
+    Generic,
     Iterable,
     Iterator,
     Optional,
-    Self,
+    TypeVar,
     overload,
 )
 
@@ -20,8 +21,18 @@ from sortedcontainers import SortedDict  # pylint: disable=import-error
 from hornero_event_classifier.core.enums import ItemType
 from hornero_event_classifier.core.types import HasFrame, ItemTyped
 
+try:
+    from typing import Self
+except ImportError:  # pragma: no cover - Python < 3.11
+    from typing_extensions import Self
 
-class DefaultSpawnDict[K, V](dict[K, V]):
+K = TypeVar("K")
+V = TypeVar("V")
+T = TypeVar("T", bound=HasFrame)
+TItem = TypeVar("TItem", bound=ItemTyped)
+G = TypeVar("G")
+
+class DefaultSpawnDict(dict[K, V], Generic[K, V]):
     """A custom dictionary subclass similar to :py:class:`collections.defaultdict`. This class works like a dictionary except
     that if a value is indexed and does not exist, then a new object is created using the index key as an input argument.
 
@@ -58,7 +69,7 @@ class DefaultSpawnDict[K, V](dict[K, V]):
         return new
 
 
-class FrameIndexer[T: HasFrame]:
+class FrameIndexer(Generic[T]):
     """A class organizing a sequence of objects along a timeline. In particular, this class allows for indexing objects based on
     their frame number. :py:class:`FrameIndexer` does not support holding multiple objects per frame. All objects in
     :py:class:`FrameIndexer` have a :code:`frame` variable of type :code:`int` which it will automatically sort.
@@ -176,7 +187,7 @@ class FrameIndexer[T: HasFrame]:
         self._data.update([(d.frame, d) for d in data])
         self._refresh_range()
 
-    def get[G](self, frame: int, default: G) -> T | G:
+    def get(self, frame: int, default: G) -> T | G:
         """Return the object at the specified frame. If the frame does not exist, ``default`` is returned.
 
         :param frame: frame number
@@ -262,7 +273,7 @@ class FrameIndexer[T: HasFrame]:
         return FrameCache(self)
 
 
-class FrameCache[T: HasFrame]:
+class FrameCache(Generic[T]):
     """This class temporarily holds objects before passing them to a :py:class:`FrameIndexer`.
 
     This class helps with optimization as :py:class:`FrameIndexer` needs to sort everything every time an object is added.
@@ -306,37 +317,37 @@ class FrameCache[T: HasFrame]:
             self.release()
 
 
-class ItemTypedCollection[T: ItemTyped]:
+class ItemTypedCollection(Generic[TItem]):
     """A collection of items that follow the :py:class:`ItemTyped` protocol.
 
     :param starting_data: A collection of starting data, defaults to ()
     :type starting_data: Iterable[T], optional
     """
 
-    def __init__(self, starting_data: Iterable[T] = ()) -> None:
-        self._data: dict[ItemType, set[T]] = defaultdict(set)
+    def __init__(self, starting_data: Iterable[TItem] = ()) -> None:
+        self._data: dict[ItemType, set[TItem]] = defaultdict(set)
         for obj in starting_data:
             self.add(obj)
 
     @staticmethod
-    def _no_filter(_: T) -> bool:
+    def _no_filter(_: TItem) -> bool:
         return True
 
     @staticmethod
-    def _include_ignore(obj: T) -> bool:
+    def _include_ignore(obj: TItem) -> bool:
         return obj.ignore is True
 
     @staticmethod
-    def _no_ignore(obj: T) -> bool:
+    def _no_ignore(obj: TItem) -> bool:
         return obj.ignore is False
 
-    _filter_funcs: dict[bool | None, Callable[[T], bool]] = {
+    _filter_funcs: dict[bool | None, Callable[[TItem], bool]] = {
         True: _include_ignore,
         False: _no_ignore,
         None: _no_filter,
     }
 
-    def add(self, obj: T) -> None:
+    def add(self, obj: TItem) -> None:
         """Add an object to the collection.
 
         :param obj: Object to be added.
@@ -344,7 +355,7 @@ class ItemTypedCollection[T: ItemTyped]:
         """
         self._data[obj.type].add(obj)
 
-    def extend(self, objects: Iterable[T]) -> None:
+    def extend(self, objects: Iterable[TItem]) -> None:
         """Add multiple object to the collection.
 
         :param objects: Iterable of objects to be added.
@@ -353,7 +364,7 @@ class ItemTypedCollection[T: ItemTyped]:
         for obj in objects:
             self.add(obj)
 
-    def remove(self, obj: T) -> None:
+    def remove(self, obj: TItem) -> None:
         """Remove an object from the collection.
 
         :param obj: Object to be removed.
@@ -361,7 +372,7 @@ class ItemTypedCollection[T: ItemTyped]:
         """
         self._data[obj.type].discard(obj)
 
-    def get(self, *item_types: ItemType, ignored: bool | None = False) -> Generator[T]:
+    def get(self, *item_types: ItemType, ignored: bool | None = False) -> Generator[TItem, None, None]:
         """Return a generator of items of the specified types.
 
         If no ``item_types`` are provided, all types are included.
@@ -379,7 +390,7 @@ class ItemTypedCollection[T: ItemTyped]:
             item_types = tuple(ItemType)
         return (obj for item_type in item_types for obj in self._data[item_type] if filter_func(obj))
 
-    def has(self, obj: T) -> bool:
+    def has(self, obj: TItem) -> bool:
         """Check if object is in the instance.
 
         :param obj: The object to check for.

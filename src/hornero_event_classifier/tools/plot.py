@@ -4,7 +4,7 @@ This module focuses on visual inspection tools for internal workflows.
 """
 
 from __future__ import annotations
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Optional, Type, TypeAlias
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -237,7 +237,7 @@ class EventInteractor:
         self.ax.figure.canvas.draw_idle()
 
 
-type CtrlClickCallback = Callable[[EventInteractor, VideoMetadata, tuple[float, float]], Any]
+CtrlClickCallback: TypeAlias = Callable[[EventInteractor, VideoMetadata, tuple[float, float]], Any]
 
 
 def _make_event_plot(

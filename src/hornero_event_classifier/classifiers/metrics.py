@@ -11,17 +11,21 @@ from enum import IntEnum, auto
 from typing import (
     TYPE_CHECKING,
     Callable,
+    Generic,
     Sequence,
+    TypeVar,
 )
 
 import numpy as np
 from numpy.typing import NDArray
 
 import hornero_event_classifier.classifiers.dependencies as req
-from hornero_event_classifier.core import ItemType
+from hornero_event_classifier.core.enums import ItemType
 
 if TYPE_CHECKING:
     from hornero_event_classifier.core.data import BBox
+
+O = TypeVar("O")
 
 
 class Metric(IntEnum):
@@ -108,7 +112,7 @@ class Metric(IntEnum):
         return self.name
 
 
-class MetricRegistry[O]:
+class MetricRegistry(Generic[O]):
     """A registry class for :py:class:`Metric` logic functions."""
 
     def __init__(self) -> None:
