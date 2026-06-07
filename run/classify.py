@@ -32,7 +32,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import pandas as pd
-from defaults import RESULTS_FILE
+from config import config
 
 from hornero_event_classifier import (
     Classifier,
@@ -199,14 +199,14 @@ if __name__ == "__main__":
     metadata_repo = read_metadata("data/video_metadata.json")
 
     # Check if results file exists for resuming processing
-    file_exists = RESULTS_FILE.exists()
+    file_exists = config.results_file.exists()
     already_processed: list[str] = []
     if args.restart and file_exists:
         # Remove existing file to restart
-        remove(RESULTS_FILE)
+        remove(config.results_file)
     elif file_exists:
         # Load existing results and skip already processed videos
-        old_data = pd.read_csv(RESULTS_FILE)
+        old_data = pd.read_csv(config.results_file)
         already_processed = list(np.unique(old_data["video_id"]))
         # Filter out already processed videos (would need to modify metadata_repo iteration)
 
@@ -228,7 +228,7 @@ if __name__ == "__main__":
             )
 
             # Append results to CSV file (create if doesn't exist, append if it does)
-            results.to_csv(RESULTS_FILE, index=False, header=not RESULTS_FILE.exists(), mode="a")
+            results.to_csv(config.results_file, index=False, header=not config.results_file.exists(), mode="a")
 
     if not args.no_progress:
         # Print total processing time
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 
     if not args.no_plot:
         # Read dataframe of all results
-        all_results = pd.read_csv(RESULTS_FILE)
+        all_results = pd.read_csv(config.results_file)
 
         # Create interactive event plot with click-to-open-video functionality
         fig, ax, interactor = event_plot(metadata_repo, all_results, ctrl_click_callback=event_plot_open_vid)

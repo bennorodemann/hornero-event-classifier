@@ -22,7 +22,7 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 from classify import classify
-from defaults import SEGMENTS_CACHE_PATH, METADATA_FILE, BORIS_FILE
+from config import config
 import json
 from hornero_event_classifier import (
     Metric,
@@ -118,12 +118,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Load metadata repository
-    metadata_repo: dict[str, VideoMetadata] = read_metadata(METADATA_FILE)
+    metadata_repo: dict[str, VideoMetadata] = read_metadata(config.metadata_file)
 
     segment_dfs: list[pd.DataFrame] = []
 
     # Generate or load segment data
-    if args.refresh or SEGMENTS_CACHE_PATH is None or not SEGMENTS_CACHE_PATH.exists():
+    if args.refresh or config.segments_cache_path is None or not config.segments_cache_path.exists():
         for video_metadata in metadata_repo.values():
             # Initialize classifier with weights of 1 for so unedited metric values can be collected later
             classifier = ThresholdClassifier(list(Metric), [1 for _ in Metric])
@@ -139,14 +139,14 @@ if __name__ == "__main__":
         segment_data: pd.DataFrame = pd.concat(segment_dfs)
 
         # Cache segment data if a path is provided
-        if SEGMENTS_CACHE_PATH is not None:
-            segment_data.to_csv(SEGMENTS_CACHE_PATH)
+        if config.segments_cache_path is not None:
+            segment_data.to_csv(config.segments_cache_path)
     else:
         # Load cached segment data
-        segment_data = pd.read_csv(SEGMENTS_CACHE_PATH)
+        segment_data = pd.read_csv(config.segments_cache_path)
 
     # Load BORIS annotations
-    boris = pd.read_csv(BORIS_FILE)
+    boris = pd.read_csv(config.boris_file)
 
     # Compute weights and classification results
     (threshold, weights), results = recommend_weights(args.metrics, segment_data, boris)

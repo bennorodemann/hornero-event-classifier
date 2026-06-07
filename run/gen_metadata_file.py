@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from defaults import METADATA_FILE, VIDEOS_ROOT_PATH, YOLO_FOLDER
+from config import config
 
 from hornero_event_classifier import VideoMetadata, gen_metadata, write_metadata
 
@@ -33,10 +33,10 @@ def video_sub_path(video_id: str) -> str:
 
 
 # Collect all YOLO detection files from the YOLO folder
-yolo_files: list[Path] = [YOLO_FOLDER / file for file in os.listdir(YOLO_FOLDER)]
+yolo_files: list[Path] = [config.yolo_folder / file for file in os.listdir(config.yolo_folder)]
 
 # Generate corresponding video file paths from YOLO filenames
-video_files: list[Path] = [VIDEOS_ROOT_PATH / video_sub_path(file.stem.rsplit("_", 1)[0]) for file in yolo_files]
+video_files: list[Path] = [config.videos_root_path / video_sub_path(file.stem.rsplit("_", 1)[0]) for file in yolo_files]
 
 
 def serializer(value: Any) -> Any:
@@ -62,4 +62,4 @@ def serializer(value: Any) -> Any:
 metadata = gen_metadata(zip(yolo_files, video_files))
 
 # Write the metadata repository to the specified file
-write_metadata(METADATA_FILE, metadata)
+write_metadata(config.metadata_file, metadata)

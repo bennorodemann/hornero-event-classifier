@@ -11,7 +11,7 @@ from threading import Thread
 import cv2
 import numpy as np
 from classify import classify, load_default_classifier
-from defaults import METADATA_FILE
+from config import config
 
 from hornero_event_classifier import ItemType, Scene, VideoMetadata, read_metadata
 from hornero_event_classifier.tools import Animator
@@ -131,7 +131,7 @@ if __name__ == "__main__":
             raise ValueError("clip argument can not have more than 2 values")
 
     # Load video metadata repository
-    metadata_repo = read_metadata(METADATA_FILE)
+    metadata_repo = read_metadata(config.metadata_file)
 
     for metadata in metadata_repo:
         if metadata.startswith(args.video):

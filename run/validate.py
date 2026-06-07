@@ -9,7 +9,7 @@ summary and per-video statistics.
 
 import numpy as np
 import pandas as pd
-from defaults import BORIS_FILE, METADATA_FILE, RESULTS_FILE
+from config import config
 from argparse import ArgumentParser
 from typing import Collection
 
@@ -165,13 +165,13 @@ def similar_items(source: Collection[str], refs: Collection[str]) -> list[str]:
 if __name__ == "__main__":
     args = parser.parse_args()
     # Load BORIS ground truth data
-    boris = pd.read_csv(BORIS_FILE)
+    boris = pd.read_csv(config.boris_file)
 
     # Load YOLO classification results
-    yolo = pd.read_csv(RESULTS_FILE)
+    yolo = pd.read_csv(config.results_file)
 
     # Load video metadata
-    metadata = read_metadata(METADATA_FILE)
+    metadata = read_metadata(config.metadata_file)
 
     # Apply white list and black list selections
     if args.white_list:
