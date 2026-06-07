@@ -196,7 +196,7 @@ if __name__ == "__main__":
     start_time = time.time()
 
     # Load video metadata repository
-    metadata_repo = read_metadata("data/video_metadata.json")
+    metadata_repo = read_metadata(config.metadata_file)
 
     # Check if results file exists for resuming processing
     file_exists = config.results_file.exists()

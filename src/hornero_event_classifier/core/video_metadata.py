@@ -1,27 +1,28 @@
-"""Video metadata extraction and JSON serialization helpers.
+"""Video metadata extraction and CSV serialization helpers.
 
 This module relies on ``ffmpeg``/``ffprobe`` being available on the system path (via ``ffmpeg-python``).
 """
 
 from __future__ import annotations
 
-import json
-from typing import Any, Iterable
-from dataclasses import dataclass, asdict
+from csv import DictReader, DictWriter
+from typing import Any, Iterable, Iterator, Self
+from dataclasses import dataclass, asdict, fields
 from pathlib import Path
 import ffmpeg
+from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
-class VideoMetadata:
+class VideoMetadata(Mapping):
     """Metadata describing a single video and its corresponding YOLO file.
 
-    :param name: Video stem name (filename without extension).
-    :type name: str
+    :param nest: Nest id
+    :type nest: str
+    :param file_name: Video file name (with extension).
+    :type file_name: str
     :param fps: Frames-per-second as a string fraction (e.g., ``"30/1"``).
     :type fps: str
-    :param duration_s: Duration in seconds.
-    :type duration_s: float
     :param duration_f: Duration in frames.
     :type duration_f: int
     :param width: Frame width in pixels.
@@ -30,27 +31,50 @@ class VideoMetadata:
     :type height: int
     :param yolo_path: Absolute path to the YOLO CSV file.
     :type yolo_path: Path
-    :param video_path: Absolute path to the video file.
-    :type video_path: Path
+    :param file_path: Absolute path to the video file.
+    :type file_path: Path
     """
 
-    name: str
+    nest_id: str
+    file_name: str
     fps: str
-    duration_s: float
     duration_f: int
     width: int
     height: int
     yolo_path: Path
-    video_path: Path
+    file_path: Path
+
+    @classmethod
+    def read_row(cls, row: dict[str, str]) -> Self:
+        """Create ``VideoMetadata`` object from csv ``dict``"""
+        return cls(
+            nest_id=row["nest_id"],
+            file_name=row["file_name"],
+            fps=row["fps"],
+            duration_f=int(row["duration_f"]),
+            width=int(row["width"]),
+            height=int(row["height"]),
+            yolo_path=Path(row["yolo_path"]),
+            file_path=Path(row["file_path"]),
+        )
 
     @property
-    def nest(self) -> str:
-        """Return the nest ID parsed from the video name (prefix before first underscore)."""
-        return self.name.split("_", 1)[0]
+    def name(self) -> str:
+        """Returns ``self.video_file`` without the file extension"""
+        return self.file_name.rsplit(".", 1)[0]
 
     def as_dict(self) -> dict[str, Any]:
-        """Return a JSON-serializable dict representation."""
+        """Return a CSV-serializable dict representation."""
         return asdict(self)
+
+    def __getitem__(self, key: str):
+        return getattr(self, key)
+
+    def __iter__(self) -> Iterator[str]:
+        return (f.name for f in fields(self))
+
+    def __len__(self) -> int:
+        return len(fields(self))
 
 
 def gen_metadata(data: Iterable[tuple[str | Path, str | Path]]) -> dict[str, VideoMetadata]:
@@ -76,52 +100,37 @@ def gen_metadata(data: Iterable[tuple[str | Path, str | Path]]) -> dict[str, Vid
         probe_data = ffmpeg.probe(video)
         stream = probe_data["streams"][[s["codec_type"] for s in probe_data["streams"]].index("video")]
         # create instance
+        nest = video.stem.split("_", 1)[0]
         out[video.stem] = VideoMetadata(
-            name=video.stem,
+            nest_id=nest,
+            file_name=video.name,
             fps=stream["avg_frame_rate"],
-            duration_s=float(stream["duration"]),
             duration_f=int(float(stream["duration"]) * eval(stream["avg_frame_rate"])),
             width=stream["width"],
             height=stream["height"],
             yolo_path=yolo.absolute(),
-            video_path=video.absolute(),
+            file_path=video.absolute(),
         )
     return out
 
 
-def _encoder(value: Any) -> Any:
-    """JSON encoder for :py:class:`Path` and :py:class:`VideoMetadata` values."""
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, VideoMetadata):
-        return value.as_dict()
-    return value
-
-
 def write_metadata(filepath: str | Path, data: dict[str, VideoMetadata]):
-    """Write metadata to a JSON file.
+    """Write metadata to a CSV file.
 
     :param filepath: Output file path.
     :type filepath: str | Path
     :param data: Metadata mapping.
     :type data: dict[str, VideoMetadata]
     """
+
     with open(filepath, "w", encoding="utf-8") as file:
-        return json.dump(data, file, default=_encoder, indent=2)
-
-
-def _obj_hook(value: dict) -> dict | VideoMetadata:
-    """JSON object hook to rebuild :py:class:`VideoMetadata` objects."""
-    if "name" in value:
-        value["yolo_path"] = Path(value["yolo_path"])
-        value["video_path"] = Path(value["video_path"])
-        return VideoMetadata(**value)
-    else:
-        return value
+        writer = DictWriter(file, fieldnames=[f.name for f in fields(VideoMetadata)])
+        writer.writeheader()
+        writer.writerows(data.values())
 
 
 def read_metadata(filepath: str | Path) -> dict[str, VideoMetadata]:
-    """Read metadata from a JSON file.
+    """Read metadata from a CSV file.
 
     :param filepath: Input file path.
     :type filepath: str | Path
@@ -129,4 +138,5 @@ def read_metadata(filepath: str | Path) -> dict[str, VideoMetadata]:
     :rtype: dict[str, VideoMetadata]
     """
     with open(filepath, "r", encoding="utf-8") as file:
-        return json.load(file, object_hook=_obj_hook)
+        metadata = [VideoMetadata.read_row(row) for row in DictReader(file)]
+        return {data.name: data for data in metadata}

@@ -542,7 +542,7 @@ class Animator:
     ):
         self.scene = scene
         self.open: bool = True
-        self.renderer = Renderer(scene.video_data.video_path, scene.frames, out_video, scaler=scale)
+        self.renderer = Renderer(scene.video_data.file_path, scene.frames, out_video, scaler=scale)
         self.rendered_frame = None
         self.min_sleep_time: int = int((1 / self.renderer.fps) * 1000) or 1
         self.last_render_time: float = 0

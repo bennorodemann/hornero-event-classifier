@@ -12,29 +12,6 @@ from argparse import ArgumentParser, SUPPRESS
 import json
 from typing import Type
 
-# # Base data directory
-# DATA_FOLDER = Path(__file__).parent.parent / "data"
-
-# # Directory containing YOLO detection CSV files
-# YOLO_FOLDER: Path = DATA_FOLDER / "YOLO"
-# if not YOLO_FOLDER.exists():
-#     raise FileNotFoundError(f"No yolo data could be found at: {YOLO_FOLDER}")
-
-# # Ground truth BORIS annotation file
-# BORIS_FILE: Path = DATA_FOLDER / "DB_BORIS.csv"
-
-# # Video metadata repository file
-# METADATA_FILE: Path = DATA_FOLDER / "video_metadata.json"
-
-# # Output file for event classification results
-# RESULTS_FILE: Path = DATA_FOLDER / "hec_output.csv"
-
-# # Root directory for video files (organized by nest subdirectories)
-# VIDEOS_ROOT_PATH: Path = Path.home() / "Videos/videos_BORIS"
-
-# # Cache of raw segment metric values
-# SEGMENTS_CACHE_PATH = DATA_FOLDER / "segment_cache.csv"
-
 CONFIG_PATH: Path = Path(__file__).parent.parent / "hec-config.json"
 
 
@@ -87,7 +64,7 @@ class Config:
         default="{data_folder}/DB_BORIS.csv", doc="Ground truth BORIS annotation file"
     )
     metadata_file: ConfigVariable = ConfigVariable(
-        default="{data_folder}/video_metadata.json", doc="Video metadata repository file"
+        default="{data_folder}/video_metadata.csv", doc="Video metadata repository file"
     )
     results_file: ConfigVariable = ConfigVariable(
         default="{data_folder}/hec_output.csv", doc="Output file for event classification results"

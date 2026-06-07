@@ -8,7 +8,6 @@ video IDs to their detection data and file paths.
 
 import os
 from pathlib import Path
-from typing import Any
 
 from config import config
 
@@ -38,28 +37,8 @@ yolo_files: list[Path] = [config.yolo_folder / file for file in os.listdir(confi
 # Generate corresponding video file paths from YOLO filenames
 video_files: list[Path] = [config.videos_root_path / video_sub_path(file.stem.rsplit("_", 1)[0]) for file in yolo_files]
 
-
-def serializer(value: Any) -> Any:
-    """
-    Custom JSON serializer for metadata objects.
-
-    Handles Path and VideoMetadata objects for JSON serialization.
-
-    Args:
-        value: The value to serialize.
-
-    Returns:
-        JSON-serializable representation of the value.
-    """
-    if isinstance(value, Path):
-        return str(value)
-    if isinstance(value, VideoMetadata):
-        return value.as_dict()
-    return value
-
-
 # Generate metadata by pairing YOLO files with video files
-metadata = gen_metadata(zip(yolo_files, video_files))
+metadata: dict[str, VideoMetadata] = gen_metadata(zip(yolo_files, video_files))
 
 # Write the metadata repository to the specified file
 write_metadata(config.metadata_file, metadata)

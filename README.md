@@ -37,14 +37,14 @@ python run/docs.py
 The classifier requires at minimum:
 
 - YOLO detection CSV files in `data/YOLO/`
-- a generated metadata repository at `data/video_metadata.json`
+- a generated metadata repository at `data/video_metadata.csv`
 
 The repository does not include these directories or files by default, so create `data/` and place your YOLO CSV
 files under `data/YOLO/` before running the pipeline.
 
 ### Video metadata
 
-Most scripts depend on `data/video_metadata.json`. Generate this file from your YOLO CSV files and the corresponding
+Most scripts depend on `data/video_metadata.csv`. Generate this file from your YOLO CSV files and the corresponding
 video files with:
 
 ```bash
@@ -62,7 +62,7 @@ If your videos are stored in a different location, update `VIDEOS_ROOT_PATH` in 
 
 The repository contains a small pipeline of helper scripts and a core package. The main entry points are:
 
-- `run/gen_metadata_file.py`: generate `data/video_metadata.json` from YOLO files and video files
+- `run/gen_metadata_file.py`: generate `data/video_metadata.csv` from YOLO files and video files
 - `run/classify.py`: classify videos and write results to `data/hec_output.csv`
 - `run/validate.py`: validate classification output against BORIS ground truth
 - `run/animate.py`: animate a single classified video scene

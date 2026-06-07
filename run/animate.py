@@ -48,7 +48,7 @@ def animate(
         raise ValueError(f"frame ({frame}) needs to be between clip values {clip}")
 
     # Check if video file exists
-    video_path = scene.video_data.video_path
+    video_path = scene.video_data.file_path
     if not video_path.exists():
         print(f"Video file not found: {video_path}")
         return
@@ -96,8 +96,8 @@ def event_plot_open_vid(_, video_metadata: VideoMetadata, mouse_pos: tuple[float
     # from multiprocessing import Process
 
     # Check if video file exists
-    if not video_metadata.video_path.exists():
-        print(f"Video {video_metadata.name} not found at: {video_metadata.video_path}")
+    if not video_metadata.file_path.exists():
+        print(f"Video {video_metadata.name} not found at: {video_metadata.file_path}")
         return
 
     # Classify the video scene without progress display
