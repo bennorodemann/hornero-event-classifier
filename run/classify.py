@@ -84,7 +84,7 @@ def classify(
     remove_low_conf: float = 0.7,
     combine_events_within: int = 120,
     min_event_len: int = 100,
-) -> tuple[pd.DataFrame, Scene]:
+) -> tuple[tuple[pd.DataFrame, pd.DataFrame], Scene]:
     """
     Classify events in a video using the provided classifier.
 
@@ -106,7 +106,7 @@ def classify(
         min_event_len: Minimum length for events to keep (default: 100).
 
     Returns:
-        Tuple of (results_dataframe, processed_scene).
+        Tuple of ((events_dataframe, identity_map_dataframe), processed_scene).
     """
     # Start timing for performance measurement
     t0 = time.time()
@@ -155,7 +155,7 @@ def classify(
     print_func(f"\r\033[K{filename}: done ({time.time()-t0:.2f} s)")
 
     # Return results dataframe and processed scene
-    return s.get_results(), s
+    return (s.get_event_results(), s.get_origin_identity_map()), s
 
 
 parser = ArgumentParser()
@@ -199,14 +199,15 @@ if __name__ == "__main__":
     metadata_repo = read_metadata(config.metadata_file)
 
     # Check if results file exists for resuming processing
-    file_exists = config.results_file.exists()
+    file_exists = config.events_file.exists()
     already_processed: list[str] = []
     if args.restart and file_exists:
         # Remove existing file to restart
-        remove(config.results_file)
+        remove(config.events_file)
+        remove(config.identity_map_file)
     elif file_exists:
         # Load existing results and skip already processed videos
-        old_data = pd.read_csv(config.results_file)
+        old_data = pd.read_csv(config.events_file)
         already_processed = list(np.unique(old_data["video_id"]))
         # Filter out already processed videos (would need to modify metadata_repo iteration)
 
@@ -215,7 +216,7 @@ if __name__ == "__main__":
         # Only process if YOLO file found and not in already processed list
         if file_metadata.yolo_path.exists() and file_metadata.name not in already_processed:
             # Classify the current video
-            results, scene = classify(
+            (event_data, identity_map), scene = classify(
                 file_metadata,
                 load_default_classifier(),
                 show_progress=not args.no_progress,
@@ -228,7 +229,10 @@ if __name__ == "__main__":
             )
 
             # Append results to CSV file (create if doesn't exist, append if it does)
-            results.to_csv(config.results_file, index=False, header=not config.results_file.exists(), mode="a")
+            event_data.to_csv(config.events_file, index=False, header=not config.events_file.exists(), mode="a")
+            identity_map.to_csv(
+                config.identity_map_file, index=False, header=not config.identity_map_file.exists(), mode="a"
+            )
 
     if not args.no_progress:
         # Print total processing time
@@ -236,7 +240,7 @@ if __name__ == "__main__":
 
     if not args.no_plot:
         # Read dataframe of all results
-        all_results = pd.read_csv(config.results_file)
+        all_results = pd.read_csv(config.events_file)
 
         # Create interactive event plot with click-to-open-video functionality
         fig, ax, interactor = event_plot(metadata_repo, all_results, ctrl_click_callback=event_plot_open_vid)

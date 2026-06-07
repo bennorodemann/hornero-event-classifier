@@ -66,8 +66,11 @@ class Config:
     metadata_file: ConfigVariable = ConfigVariable(
         default="{data_folder}/video_metadata.csv", doc="Video metadata repository file"
     )
-    results_file: ConfigVariable = ConfigVariable(
+    events_file: ConfigVariable = ConfigVariable(
         default="{data_folder}/hec_output.csv", doc="Output file for event classification results"
+    )
+    identity_map_file: ConfigVariable = ConfigVariable(
+        default="{data_folder}/identity_map.csv", doc="Output file for identity map csv file"
     )
     videos_root_path: ConfigVariable = ConfigVariable(
         default=Path.home() / "Videos/videos_BORIS",

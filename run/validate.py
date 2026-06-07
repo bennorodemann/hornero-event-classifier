@@ -168,7 +168,7 @@ if __name__ == "__main__":
     boris = pd.read_csv(config.boris_file)
 
     # Load YOLO classification results
-    yolo = pd.read_csv(config.results_file)
+    yolo = pd.read_csv(config.events_file)
 
     # Load video metadata
     metadata = read_metadata(config.metadata_file)

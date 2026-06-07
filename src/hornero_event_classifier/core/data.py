@@ -253,6 +253,7 @@ class Item:
     sub_id: int = 0
     subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
     ignore: bool = False
+    parents: tuple[Self, ...] = field(default=())
     _id_counter: count = field(default_factory=lambda: count(1))
     _boxes: FrameIndexer[BBox] = field(default_factory=FrameIndexer, init=False)
     _cache: FrameCache[BBox] | None = field(default=None, init=False)
@@ -329,6 +330,7 @@ class Item:
         """
         # pylint: disable=[protected-access]
         new = items[0]._make_child()
+        new.parents = tuple(items)
         new._inherit_timeline(items)
         for item in items:
             item.ignore = True
@@ -354,7 +356,7 @@ class Item:
             raise ValueError("Not all Items share the same subject")
         if ref.subject == Subject.NOT_CLASSIFIED:
             raise ValueError("Items must have a subject")
-        new = cls(type=ItemType.EVENT, id=id_)
+        new = cls(type=ItemType.EVENT, id=id_, parents=tuple(source))
         new.subject = ref.subject
         new._inherit_timeline(source)
         return new

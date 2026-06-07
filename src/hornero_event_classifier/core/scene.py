@@ -385,7 +385,7 @@ class Scene:
             if len(item_group) == 0 or any((i.end + buffer) >= item.start for i in item_group):
                 item_group.append(item)
                 continue
-            # current item does not fit in any of the current groups
+            # if current item does not fit in any of the current groups
             # close current group if items with same subject and add cache the group
             cache.append(item_group)
             # create a new group with current item in it
@@ -413,7 +413,7 @@ class Scene:
             "mud": False,
         }
 
-    def get_results(self) -> pd.DataFrame:
+    def get_event_results(self) -> pd.DataFrame:
         """Generate a ``pandas.DataFrame`` from created :py:attr:`.ItemType.Event` :py:class:`.Item`\\s.
 
         The output mimics the column layout from BORIS.
@@ -432,6 +432,40 @@ class Scene:
         events = list(self.items.get(ItemType.EVENT))
         return pd.DataFrame([self._get_result(event) for event in events])
 
+    def get_origin_identity_map(self) -> pd.DataFrame:
+        """Generate a ``pandas.DataFrame`` mapping original bounding box ids to output events.
+
+        Bounding boxes that where not included in the creation of events are not included.
+
+        Columns:
+            - video_id: video name string
+            - event_id: output event id
+            - yolo_id: original yolo id
+            - subject: "ring" or "no_ring"
+            - start_frame: start frame where yolo id is assigned to subject
+            - end_frame: end frame where yolo id is assigned to subject
+
+        :return: Dataframe mapping yolo ids to event ids
+        :rtype: pd.DataFrame
+        """
+        events = list(self.items.get(ItemType.EVENT))
+        identity_map = []
+        for event in events:
+            identity_map.extend(
+                [
+                    {
+                        "video_id": self.video_data.name,
+                        "event_id": event.id,
+                        "yolo_id": float(parent.id),
+                        "subject": event.subject.value,
+                        "start_frame": parent.start,
+                        "end_frame": parent.end,
+                    }
+                    for parent in event.parents
+                ]
+            )
+        return pd.DataFrame(identity_map)
+
     def write_to_csv(self, file_path: str | Path) -> Self:
         """Write dataframe from :py:meth:`Scene.get_results` directly to a CSV file.
 
@@ -440,6 +474,6 @@ class Scene:
         :return: This :py:class:`Scene` instance.
         :rtype: Self
         """
-        results = self.get_results()
+        results = self.get_event_results()
         results.to_csv(file_path, index=False)
         return self
