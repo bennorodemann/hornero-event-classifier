@@ -2,6 +2,7 @@
 .codex
 data/
 hec_venv/
+hec-config.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
