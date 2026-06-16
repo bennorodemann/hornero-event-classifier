@@ -32,7 +32,8 @@ def video_sub_path(video_id: str,VIDEOS_ROOT_PATH) -> str:
     # nest = "nest" #temp
     # import ipdb; ipdb.set_trace()
     vid = [vid for vid in VIDEOS_ROOT_PATH.glob("**/**") if video_id in str(vid)]
-        
+    if len(vid) == 0:
+        raise FileNotFoundError(f"No video file found for video ID: {video_id}")
     return vid[0]
     # return f"{nest}/{video_id}.mp4"
 
