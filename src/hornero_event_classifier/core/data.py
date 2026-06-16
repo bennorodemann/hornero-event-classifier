@@ -311,7 +311,7 @@ class Item:
         :seealso: :py:attr:`Item.key`
         """
         _, item_type, ids = key.split("-")
-        main_id, sub_id = (int(id_) for id_ in ids.split("."))
+        main_id, sub_id = (int(id_) for id_ in str(float(ids)).split("."))
         return cls(type=ItemType(item_type), id=main_id, sub_id=sub_id)
 
     @classmethod
@@ -452,7 +452,7 @@ class Item:
     def is_ring(self) -> bool:
         """Returns ``True`` if ``Item.type`` is :py:attr:`.ItemType.RING_METAL` or :py:attr:`.ItemType.RING_PLASTIC`. ``False``
         otherwise."""
-        return self.type in (ItemType.RING_METAL, ItemType.RING_PLASTIC)
+        return self.type in (ItemType.RING_METAL, ItemType.RING_PLASTIC, ItemType.RING)
 
     def cut_at(self, frame: int) -> Self:
         """Split ``Item`` in two at specified ``frame``. The original instance retains :py:class:`BBox`\\s ``< frame``.
@@ -546,7 +546,7 @@ class Frame:
     def rings(self) -> Generator[BBox]:
         """A ``Generator`` of all :py:class:`BBox`\\s in the current ``Frame`` of type :py:attr:`ItemType.RING_METAL` or
         :py:attr:`ItemType.RING_PLASTIC` where :py:attr:`Item.ignore is False <Item.ignore>`."""
-        return self._bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC)
+        return self._bboxes.get(ItemType.RING_METAL, ItemType.RING_PLASTIC, ItemType.RING)
 
     @property
     def mud(self) -> Generator[BBox]:

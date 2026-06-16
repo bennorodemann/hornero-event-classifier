@@ -12,6 +12,8 @@ class ItemType(StrEnum):
     """Metal leg ring."""
     RING_PLASTIC = auto()
     """Plastic leg ring."""
+    RING = auto()
+    """any leg ring"""
     MUD = auto()
     """Mud present on the bird. Value aliases: :code:`"beak_mud"`."""
     BEAK_MUD = MUD

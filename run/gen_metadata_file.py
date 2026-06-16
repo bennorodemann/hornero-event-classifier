@@ -27,9 +27,12 @@ def video_sub_path(video_id: str) -> str:
         Relative path string in format "nest/video_id.mp4".
     """
     # Extract nest identifier from video ID
-    nest = video_id.split("_", 1)[0]
-    return f"{nest}/{video_id}.mp4"
-
+    # nest = video_id.split("_", 1)[0]
+    # return f"{nest}/{video_id}.mp4"
+    vid = [vid for vid in config.videos_root_path.glob("**/**") if video_id in str(vid)]
+    if len(vid) == 0:
+        raise FileNotFoundError(f"No video file found for video ID: {video_id}")
+    return vid[0]
 
 # Collect all YOLO detection files from the YOLO folder
 yolo_files: list[Path] = [config.yolo_folder / file for file in os.listdir(config.yolo_folder)]
