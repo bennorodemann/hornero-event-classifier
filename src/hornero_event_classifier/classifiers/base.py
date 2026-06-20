@@ -8,7 +8,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import (
     Any,
-    Callable,
     Iterable,
     Optional,
     Self,
@@ -24,9 +23,10 @@ from hornero_event_classifier.classifiers.metrics import (
     Metric,
     metric_func_registry,
 )
-from hornero_event_classifier.core import BBox, Item, Subject
+from hornero_event_classifier.core import BBox, Item, Subject, ItemType
 
 
+# TODO: update docs (particularly targets implementation)
 class ItemSegment:  # pylint: disable=too-many-instance-attributes
     """A sub-segment of :py:class:`~.core.data.Item` that holds a sub-section :py:class:`~.core.data.BBox`\\es and holds
     :py:class:`~.Metric` data arrays about the :py:class:`~core.data.BBox`\\es. This is the class type that
@@ -36,14 +36,19 @@ class ItemSegment:  # pylint: disable=too-many-instance-attributes
 
     :param item: parent :py:class:`~core.data.Item`
     :type item: Item
+    :param targets: target :py:class:`~enums.ItemType`\\s to compare with ``parent``
+    :type targets: tuple[ItemType, ...]
     :param boxes: a sequence of :py:class:`~.core.data.BBox`\\es from the parent
     :type boxes: Sequence[BBox]
     :param metrics: :py:class:`~.classifiers.metrics.Metric`\\s to collect data on
     :type metrics: Iterable[Metric]
     """
 
-    def __init__(self, item: Item, boxes: Sequence[BBox], metrics: Iterable[Metric]) -> None:
+    def __init__(
+        self, item: Item, targets: tuple[ItemType, ...], boxes: Sequence[BBox], metrics: Iterable[Metric]
+    ) -> None:
         self.item: Item = item
+        self.targets: tuple[ItemType, ...] = targets
         self.metrics: Iterable[Metric] = metrics
         self.boxes: list[BBox] = list(boxes)
         self.start: int
@@ -72,7 +77,7 @@ class ItemSegment:  # pylint: disable=too-many-instance-attributes
         ref: ItemSegment = source[0]
         if not all(box.classification == ref.classification and box.item is ref.item for box in source):
             raise ValueError("All source Segments must have the same classification and item")
-        new = cls(ref.item, [box for segment in source for box in segment.boxes], ref.metrics)
+        new = cls(ref.item, ref.targets, [box for segment in source for box in segment.boxes], ref.metrics)
         new.classification = ref.classification
         return new
 
@@ -106,7 +111,7 @@ class ItemSegment:  # pylint: disable=too-many-instance-attributes
             args = []
             # gather input arguments
             for arg in metric_func_registry.get_args(metric):
-                args.append([box.metrics_cache[arg] for box in self.boxes])
+                args.append([box.metrics_cache[self.targets][arg] for box in self.boxes])
             # get metric data (on a per box basis) and append to data
             data.append(metric_func_registry.get(metric)(self.boxes, *args))
         # convert data list to array (rows = box data, columns = metric data)
@@ -126,7 +131,7 @@ class ItemSegment:  # pylint: disable=too-many-instance-attributes
 
     def get_tail_segment(self, count: int) -> ItemSegment:
         """Return a new segment containing only the final ``count`` boxes."""
-        out = ItemSegment(self.item, self.boxes[-count:], self.metrics)
+        out = ItemSegment(self.item, self.targets, self.boxes[-count:], self.metrics)
         out.classification = self.classification
         return out
 
@@ -179,14 +184,23 @@ class SegmentCollection:
 
     :param items: Items to segment
     :type items: Iterable[Item]
+    :param targets: target :py:class:`~enums.ItemType`\\s to compare with ``parent``
+    :type targets: tuple[ItemType, ...]
     :param metrics: Metrics to compute per segment
     :type metrics: Iterable[Metric]
     :param segment_length: Optional fixed length for segmentation, if None (the default) full item length is used
     :type segment_length: Optional[int], optional
     """
 
-    def __init__(self, items: Iterable[Item], metrics: Iterable[Metric], segment_length: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        items: Iterable[Item],
+        targets: tuple[ItemType, ...],
+        metrics: Iterable[Metric],
+        segment_length: Optional[int] = None,
+    ) -> None:
         self.metrics: tuple[Metric, ...] = tuple(metrics)
+        self.target_items: tuple[ItemType, ...] = targets
         self.target_segment_len: int | None = segment_length
         segments: list[ItemSegment] = []
         self.item_groups: dict[Item, slice] = {}
@@ -198,9 +212,9 @@ class SegmentCollection:
             boxes = tuple(item.boxes.get_all())
             # run dependency functions
             for func in cache_seq:
-                func(boxes)
+                func(self.target_items, boxes)
             # load segments and add them to all segments list
-            segments.extend(self._load_segments(item, boxes, self.metrics, segment_length=segment_length))
+            segments.extend(self._load_segments(item, targets, boxes, self.metrics, segment_length=segment_length))
             new_len = len(segments)
             # remember which indexes correspond to which items
             self.item_groups[item] = slice(prev_len, new_len)
@@ -212,14 +226,21 @@ class SegmentCollection:
 
     @staticmethod
     def _load_segments(
-        item: Item, boxes: Sequence[BBox], metrics: Iterable[Metric], segment_length: Optional[int]
+        item: Item,
+        targets: tuple[ItemType, ...],
+        boxes: Sequence[BBox],
+        metrics: Iterable[Metric],
+        segment_length: Optional[int],
     ) -> list[ItemSegment]:
         if segment_length is None:
-            return [ItemSegment(item, boxes, metrics)]
-        return [ItemSegment(item, boxes[s : (s + segment_length - 1)], metrics) for s in range(0, len(boxes), segment_length)]
+            return [ItemSegment(item, targets, boxes, metrics)]
+        return [
+            ItemSegment(item, targets, boxes[s : (s + segment_length - 1)], metrics)
+            for s in range(0, len(boxes), segment_length)
+        ]
 
     @staticmethod
-    def _get_cache_sequence(metrics: Iterable[Metric]) -> list[Callable[[Sequence[BBox]], Any]]:
+    def _get_cache_sequence(metrics: Iterable[Metric]) -> list[Dependency]:
         all_funcs: set[Dependency] = set()
         for metric in metrics:
             all_funcs |= metric_func_registry.get_dependency_list(metric)

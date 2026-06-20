@@ -149,7 +149,9 @@ def classify(
     print_func(f"\r\033[K{filename}: classifying...", end="")
 
     # Run classification, define events, and remove short events
-    s.classify(classifier).define_events(combine_events_within).remove_minor_items(min_event_len, ItemType.EVENT)
+    s.classify(classifier, (ItemType.RING, ItemType.RING_METAL, ItemType.RING_PLASTIC)).define_events(
+        combine_events_within
+    ).remove_minor_items(min_event_len, ItemType.EVENT)
 
     # Completion message with timing
     print_func(f"\r\033[K{filename}: done ({time.time()-t0:.2f} s)")

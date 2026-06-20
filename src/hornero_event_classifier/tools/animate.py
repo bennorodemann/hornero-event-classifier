@@ -371,7 +371,7 @@ class Renderer:
                 )
                 # if rings are also shown and local_rings loaded in metrics_cache: draw lines between the bird and all rings
                 if self.show_rings:
-                    for ring in bird.metrics_cache.get(ref.local_rings, []):
+                    for ring in bird.metrics_cache.get(ref.local_items, []):
                         cv2.line(
                             img,
                             (int(bird.x * self._scaler), int(bird.y * self._scaler)),

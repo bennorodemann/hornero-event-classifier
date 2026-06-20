@@ -12,6 +12,7 @@ from typing import (
     Sequence,
 )
 from itertools import count
+from collections import defaultdict
 
 from hornero_event_classifier.core.enums import ItemType, Subject
 from hornero_event_classifier.core.collections import FrameCache, FrameIndexer, ItemTypedCollection
@@ -56,7 +57,7 @@ class BBox:
     conf: float
     real: bool = True
     #: a cache where relevant info can be stored, primarily used by :py:class:`.Classifier`\\s
-    metrics_cache: dict = field(default_factory=dict, init=False)
+    metrics_cache: dict = field(default_factory=lambda: defaultdict(dict), init=False)
 
     def __post_init__(self):
         self.frame_obj.add_bbox(self)
@@ -535,6 +536,10 @@ class Frame:
     def height(self) -> int:
         """The height of the frame in pixels. Shortcut for :py:attr:`.VideoMetadata.height`."""
         return self.video_metadata.height
+
+    def get_items(self, *items: ItemType) -> Generator[BBox]:
+        # TODO: doc string
+        return self._bboxes.get(*items)
 
     @property
     def birds(self) -> Generator[BBox]:

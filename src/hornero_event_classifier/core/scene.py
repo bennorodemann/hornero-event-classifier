@@ -330,7 +330,9 @@ class Scene:
                 item.ignore = True
         return self
 
-    def classify(self, classifier: Classifier, segment_length: Optional[int] = None) -> Self:
+    def classify(
+        self, classifier: Classifier, targets: tuple[ItemType, ...], segment_length: Optional[int] = None
+    ) -> Self:
         """Apply a classifier to :py:attr:`~.ItemType.BIRD` :py:class:`.Item`\\s.
 
         :param classifier: A :py:class:`.Classifier` instance to apply to :py:class:`Item`\\s
@@ -344,7 +346,7 @@ class Scene:
         """
         # create segments from bird items
         self.segments = SegmentCollection(
-            self.items.get(ItemType.BIRD), classifier.metrics, segment_length=segment_length
+            self.items.get(ItemType.BIRD), targets, classifier.metrics, segment_length=segment_length
         )
         # train classifier if needed
         classifier.train(self.segments)
