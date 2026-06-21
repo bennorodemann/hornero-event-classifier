@@ -4,13 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field, replace
-from typing import (
-    TYPE_CHECKING,
-    Generator,
-    Iterable,
-    Self,
-    Sequence,
-)
+from typing import TYPE_CHECKING, Generator, Iterable, Self, Sequence, Any
 from itertools import count
 from collections import defaultdict
 
@@ -252,7 +246,8 @@ class Item:
     type: ItemType
     id: int
     sub_id: int = 0
-    subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
+    # subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
+    classifications: dict[str, bool] = field(default_factory=dict)
     ignore: bool = False
     parents: tuple[Self, ...] = field(default=())
     _id_counter: count = field(default_factory=lambda: count(1))
@@ -346,19 +341,16 @@ class Item:
         :type id_: int
         :param source: ``Item``\\s from which the :py:attr:`.ItemType.EVENT` was derived.
         :type source: list[Item]
-        :raises ValueError: If ``Item``\\s don't share the same ``subject``.
-        :raises ValueError: If :py:attr:`Item.subject` is :py:attr:`.Subject.NOT_CLASSIFIED`.
+        :raises ValueError: If ``Item``\\s don't share the same ``classifications``.
         :return: New instance of type :py:attr:`.ItemType.EVENT`.
         :rtype: Self
         :seealso: :py:meth:`Item.combine`
         """
         ref = source[0]
-        if not all(i.subject == ref.subject for i in source):
+        if not all(i.classifications == ref.classifications for i in source):
             raise ValueError("Not all Items share the same subject")
-        if ref.subject == Subject.NOT_CLASSIFIED:
-            raise ValueError("Items must have a subject")
         new = cls(type=ItemType.EVENT, id=id_, parents=tuple(source))
-        new.subject = ref.subject
+        new.classifications = ref.classifications.copy()
         new._inherit_timeline(source)
         return new
 
@@ -389,7 +381,7 @@ class Item:
 
     def _inherit_timeline(self, items: Iterable[Item]):
         # check that all items have the same subject
-        if not all(item.subject == self.subject for item in items):
+        if not all(item.classifications == self.classifications for item in items):
             raise ValueError("Items must have the same subject")
         # find frame range
         start = min(i.start for i in items)
@@ -405,7 +397,7 @@ class Item:
     def _make_child(self) -> Self:
         # new instance with incremented sub_id and inherited subject
         child = replace(self, sub_id=next(self._id_counter))
-        child.subject = self.subject
+        child.classifications = self.classifications.copy()
         return child
 
     def start_caching(self):

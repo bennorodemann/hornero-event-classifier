@@ -10,7 +10,7 @@ from threading import Thread
 
 import cv2
 import numpy as np
-from classify import classify, load_default_classifier
+from classify import classify, load_default_classifiers
 from config import config
 
 from hornero_event_classifier import ItemType, Scene, VideoMetadata, read_metadata
@@ -101,7 +101,7 @@ def event_plot_open_vid(_, video_metadata: VideoMetadata, mouse_pos: tuple[float
         return
 
     # Classify the video scene without progress display
-    _, scene = classify(video_metadata, load_default_classifier(), show_progress=False, remove_low_conf=0)
+    _, scene = classify(video_metadata, load_default_classifiers(), show_progress=False, remove_low_conf=0)
 
     # Animate starting from the clicked frame position, scaled up and paused
     Thread(target=animate, args=(scene,), kwargs={"scale": 2, "frame": int(mouse_pos[0]), "auto_play": False}).start()
@@ -140,5 +140,5 @@ if __name__ == "__main__":
     else:
         raise ValueError(f"No video name could be found including: {args.video}")
     # Classify the target video and animate it
-    _, scene = classify(metadata_repo[target_video], load_default_classifier())
+    _, scene = classify(metadata_repo[target_video], load_default_classifiers())
     animate(scene, scale=args.scale, frame=args.frame, clip=args.clip, auto_play=args.auto_play, out_video=args.save)

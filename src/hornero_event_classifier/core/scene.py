@@ -79,7 +79,7 @@ class Scene:
     video_data: VideoMetadata
     items: ItemTypedCollection[Item] = field(default_factory=ItemTypedCollection[Item], repr=False)
     frames: FrameIndexer[Frame] = field(default_factory=FrameIndexer, repr=False)
-    segments: SegmentCollection | None = field(default=None, repr=False, init=False)
+    segments: dict[str, SegmentCollection] = field(default_factory=dict, repr=False)
 
     @classmethod
     def from_metadata(cls, metadata: VideoMetadata) -> Self:
@@ -272,7 +272,11 @@ class Scene:
         birds: list[Item] = sorted(self.items.get(ItemType.BIRD), key=lambda i: i.start)
         overlaps: dict[Item, set[Item]] = {}
         for bird in birds:
-            overlaps[bird] = {b for b in birds if b is not bird and b.frame_overlap(bird) and b.subject == bird.subject}
+            overlaps[bird] = {
+                b
+                for b in birds
+                if b is not bird and b.frame_overlap(bird) and b.classifications == bird.classifications
+            }
         for parent_bird, child_birds in overlaps.items():
             for child_bird in child_birds.copy():
                 overlap_start = max(parent_bird.start, child_bird.start)
@@ -330,9 +334,7 @@ class Scene:
                 item.ignore = True
         return self
 
-    def classify(
-        self, classifier: Classifier, targets: tuple[ItemType, ...], segment_length: Optional[int] = None
-    ) -> Self:
+    def classify(self, name: str, classifier: Classifier, segments: SegmentCollection) -> Self:
         """Apply a classifier to :py:attr:`~.ItemType.BIRD` :py:class:`.Item`\\s.
 
         :param classifier: A :py:class:`.Classifier` instance to apply to :py:class:`Item`\\s
@@ -345,25 +347,29 @@ class Scene:
             :py:class:`~hornero_event_classifier.classifiers.Classifier`
         """
         # create segments from bird items
-        self.segments = SegmentCollection(
-            self.items.get(ItemType.BIRD), targets, classifier.metrics, segment_length=segment_length
-        )
+        self.segments[name] = segments  # SegmentCollection(
+        # self.items.get(ItemType.BIRD), targets, classifier.metrics, segment_length=segment_length
+        # )
         # train classifier if needed
-        classifier.train(self.segments)
+        classifier.train(self.segments[name])
         # get classifications
-        results = classifier.classify(self.segments)
+        results = classifier.classify(self.segments[name])
         # for each item and segments pair
-        for item, segments in results.items():
+        for item, segs in results.items():
             # set items subject to the first segments classification
-            item.subject = segments[0].classification
+            if segs[0].classification is None:
+                raise ValueError("Segment was never classified")
+            item.classifications[name] = segs[0].classification
             # go through the rest of the segments in reverse order and cut at start of segment
-            for segment in segments[:0:-1]:
+            for segment in segs[:0:-1]:
                 new_item = item.cut_at(segment.start)
-                new_item.subject = segment.classification
+                if segment.classification is None:
+                    raise ValueError("Segment was never classified")
+                new_item.classifications[name] = segment.classification
                 self.items.add(new_item)
         return self
 
-    def define_events(self, buffer: int = 0) -> Self:
+    def define_events(self, classification_key: str, buffer: int = 0) -> Self:
         """Create events from classified :py:attr:`.ItemType.BIRD` :py:class:`.Item`\\s.
 
         :param buffer: Number of frames within which to merge :py:class:`.Item`\\s with the same classification, defaults to 0.
@@ -373,15 +379,15 @@ class Scene:
         :seealso: :py:meth:`~hornero_event_classifier.core.data.Item.spawn_event`
         """
         cache: list[list[Item]] = []
-        active: dict[Subject, list[Item]] = {}
+        active: dict[bool, list[Item]] = {}
         # For each bird item
         for item in sorted(self.items.get(ItemType.BIRD), key=lambda b: b.start):
-            assert item.subject is not Subject.NOT_CLASSIFIED  # debug check: make sure item was classified
+            assert item.classifications[classification_key] is not None  # debug check: make sure item was classified
             # get current grouping of items with the same subject
-            item_group: list[Item] | None = active.get(item.subject, None)
+            item_group: list[Item] | None = active.get(item.classifications[classification_key], None)
             # if there is no active item_group create a new one and move on to next iteration
             if item_group is None:
-                active[item.subject] = [item]
+                active[item.classifications[classification_key]] = [item]
                 continue
             # if item_group is empty or item starts before end (+ buffer) of any of the items in the group, then add item to group
             if len(item_group) == 0 or any((i.end + buffer) >= item.start for i in item_group):
@@ -391,7 +397,7 @@ class Scene:
             # close current group if items with same subject and add cache the group
             cache.append(item_group)
             # create a new group with current item in it
-            active[item.subject] = [item]
+            active[item.classifications[classification_key]] = [item]
         # close remaining groups and add them to the cache
         for group in active.values():
             cache.append(group)
@@ -405,14 +411,15 @@ class Scene:
             self.items.add(event)
         return self
 
-    def _get_result(self, item: Item) -> ResultDict:
+    def _get_result(self, item: Item) -> dict:  # ResultDict:
         # convert Item to result csv dict entry
         return {
             "video_id": self.video_data.name,
-            "subject": item.subject.value,
+            # "subject": item.subject.value,
             "start_frame": item.start,
             "end_frame": item.end,
-            "mud": False,
+            # "mud": False,
+            **item.classifications,
         }
 
     def get_event_results(self) -> pd.DataFrame:
@@ -459,9 +466,10 @@ class Scene:
                         "video_id": self.video_data.name,
                         "event_id": event.id,
                         "yolo_id": float(parent.id),
-                        "subject": event.subject.value,
+                        # "subject": event.subject.value,
                         "start_frame": parent.start,
                         "end_frame": parent.end,
+                        **parent.classifications,
                     }
                     for parent in event.parents
                 ]

@@ -56,7 +56,7 @@ class ItemSegment:  # pylint: disable=too-many-instance-attributes
         self.seg_data: NDArray[np.float64]
         self.data_summary: NDArray[np.float64]
         self.refresh()
-        self.classification: Subject = Subject.NOT_CLASSIFIED
+        self.classification: bool | None = None
 
     def __repr__(self) -> str:
         return f"{self.classification}: {self.start} -> {self.end}"
@@ -310,7 +310,7 @@ class Classifier(ABC):
     def _apply_classifications(segments: Iterable[ItemSegment], classifications: Iterable[bool] | NDArray[np.bool]):
         """Apply boolean classifications to a sequence of segments."""
         for segment, classification in zip(segments, classifications):
-            segment.classification = Subject(classification)
+            segment.classification = classification
 
     def _simplify(self, segments: tuple[ItemSegment, ...]) -> tuple[ItemSegment, ...]:
         """Merge adjacent segments that share the same classification."""

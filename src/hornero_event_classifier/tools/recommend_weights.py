@@ -19,7 +19,7 @@ from hornero_event_classifier.classifiers import Metric
 sklearn.set_config(enable_metadata_routing=True)
 
 
-def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame:
+def classify_with_boris(target: str, yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame:
     """Compare segment data to BORIS annotations and estimate subject labels for each segment.
 
     This function attempts to match YOLO-derived segment rows with BORIS ground truth and label the resulting
@@ -54,7 +54,8 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
     """
     yolo = yolo.copy()
     # remove non hornero events
-    boris = boris[boris["subject"] != "otra_ave"]
+    if target == "subject":
+        boris = boris[boris[target] != "otra_ave"]
     # add a row id (for later grouping)
     yolo.insert(1, "id", range(len(yolo)))
     # inner join yolo and boris dataframes by video_id
@@ -64,7 +65,9 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
     df["score"] = df[[col for col in df.columns if col.isupper()]].mean(axis=1)
     # get percent overlap between yolo segment and boris events
     df["overlap"] = (
-        df[["end_frame_yolo", "end_frame_boris"]].min(axis=1) - df[["start_frame_yolo", "start_frame_boris"]].max(axis=1) + 1
+        df[["end_frame_yolo", "end_frame_boris"]].min(axis=1)
+        - df[["start_frame_yolo", "start_frame_boris"]].max(axis=1)
+        + 1
     ) / df["length"]
     # keep rows with segments longer than 100 frames and 70% overlap with a boris event
     df = df[(df["length"] > 100) & (df["overlap"] > 0.7)]
@@ -74,17 +77,17 @@ def classify_with_boris(yolo: pd.DataFrame, boris: pd.DataFrame) -> pd.DataFrame
     # PER_OWNERSHIP metric
     df = df[
         (df["n_result"] == 1)
-        | ((df["subject"] == "ring") & (df["PER_OWNERSHIP"] >= 0.5))
-        | ((df["subject"] == "no_ring") & (df["PER_OWNERSHIP"] < 0.5))
+        # | ((df[target] == "ring") & (df["PER_OWNERSHIP"] >= 0.5))
+        # | ((df[target] == "no_ring") & (df["PER_OWNERSHIP"] < 0.5))
     ]
     # clean dataframe
-    df = df.loc[:, "video_id":"subject"]
+    df = df.loc[:, "video_id":target]
     df = df.rename(columns={"start_frame_yolo": "start_frame", "end_frame_yolo": "end_frame"})
     return df
 
 
 def _get_weights(
-    model: LogisticRegression | Pipeline, data: pd.DataFrame, metrics: list[str]
+    model: LogisticRegression | Pipeline, target: str, data: pd.DataFrame, metrics: list[str]
 ) -> tuple[np.float64, pd.Series[np.float64]]:
     """Fit a logistic model and compute normalized metric weights.
 
@@ -100,7 +103,7 @@ def _get_weights(
     # pull selected metrics
     X: pd.DataFrame = data[metrics]
     # set predictions
-    y: pd.Series = (data["subject"] == "ring").astype(np.int64)
+    y: pd.Series = data[target].astype(np.int64)
     # fit statistical model
     model.fit(X, y)
     # get model object
@@ -117,7 +120,9 @@ def _get_weights(
     return threshold, weights
 
 
-def recommend_weights(ref: pd.DataFrame, metrics: list[Metric] | None = None) -> tuple[np.float64, pd.Series[np.float64]]:
+def recommend_weights(
+    target: str, ref: pd.DataFrame, metrics: list[Metric] | None = None
+) -> tuple[np.float64, pd.Series[np.float64]]:
     """Apply a glm to output of :py:func:`classify_with_boris` to get recommended weights for selected metrics.
 
     :param ref: reference data
@@ -144,6 +149,7 @@ def recommend_weights(ref: pd.DataFrame, metrics: list[Metric] | None = None) ->
                     n_jobs=-1,
                 ),
             ),
+            target,
             ref,
             metric_strs,
         )
@@ -155,6 +161,7 @@ def recommend_weights(ref: pd.DataFrame, metrics: list[Metric] | None = None) ->
     # get weights and threshold
     return _get_weights(
         LogisticRegression(solver="lbfgs", C=np.inf, max_iter=1000),  # glm model
+        target,
         ref,
         metric_strs,
     )

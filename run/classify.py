@@ -41,6 +41,7 @@ from hornero_event_classifier import (
     Scene,
     ThresholdClassifier,
     VideoMetadata,
+    SegmentCollection,
     filters,
     read_metadata,
 )
@@ -52,7 +53,7 @@ def _no_print(*_, **__) -> None:
     pass
 
 
-def load_default_classifier() -> Classifier:
+def load_default_classifiers() -> dict[str, Classifier]:
     """
     Load the default pre-trained classifier from weights.json.
 
@@ -70,13 +71,23 @@ def load_default_classifier() -> Classifier:
         data = json.load(file)
 
     # Convert metric names to enum values and create classifier
-    weights = {Metric[k]: v for k, v in data["weights"].items()}
-    return ThresholdClassifier.from_dict(weights, data["threshold"])
+    out: dict[str, Classifier] = {}
+    for key in data:
+        weights = {Metric[k]: v for k, v in data[key]["weights"].items()}
+        out[key] = ThresholdClassifier.from_dict(weights, data[key]["threshold"])
+    return out
+
+
+def parse_subject_classification(df: pd.DataFrame) -> pd.DataFrame:
+    subject_map: dict = {True: "ring", False: "no_ring"}
+    df["subject"] = df["subject"].map(subject_map)
+    return df
 
 
 def classify(
     metadata: VideoMetadata,
-    classifier: Classifier,
+    ring_classifier: Classifier,
+    mud_classifier: Classifier | None = None,
     show_progress: bool = True,
     max_bird_gap: int = 100,
     fill_bird_gaps: bool = True,
@@ -149,15 +160,25 @@ def classify(
     print_func(f"\r\033[K{filename}: classifying...", end="")
 
     # Run classification, define events, and remove short events
-    s.classify(classifier, (ItemType.RING, ItemType.RING_METAL, ItemType.RING_PLASTIC)).define_events(
-        combine_events_within
-    ).remove_minor_items(min_event_len, ItemType.EVENT)
+    subject_segments = SegmentCollection(
+        s.items.get(ItemType.BIRD), (ItemType.RING, ItemType.RING_METAL, ItemType.RING_PLASTIC), ring_classifier.metrics
+    )
+    s.classify("subject", ring_classifier, subject_segments).define_events(
+        "subject", combine_events_within
+    ).remove_minor_items(min_event_len, ItemType.EVENT).fill_gaps(filters.make_gap_filter(2))
+
+    if mud_classifier is not None:
+        mud_segments = SegmentCollection(s.items.get(ItemType.EVENT), (ItemType.MUD,), mud_classifier.metrics)
+        s.classify("mud", mud_classifier, mud_segments)
 
     # Completion message with timing
     print_func(f"\r\033[K{filename}: done ({time.time()-t0:.2f} s)")
 
     # Return results dataframe and processed scene
-    return (s.get_event_results(), s.get_origin_identity_map()), s
+    return (
+        parse_subject_classification(s.get_event_results()),
+        parse_subject_classification(s.get_origin_identity_map()),
+    ), s
 
 
 parser = ArgumentParser()
@@ -218,9 +239,11 @@ if __name__ == "__main__":
         # Only process if YOLO file found and not in already processed list
         if file_metadata.yolo_path.exists() and file_metadata.name not in already_processed:
             # Classify the current video
+            classifiers = load_default_classifiers()
             (event_data, identity_map), scene = classify(
                 file_metadata,
-                load_default_classifier(),
+                classifiers["subject"],
+                classifiers.get("mud", None),
                 show_progress=not args.no_progress,
                 max_bird_gap=args.max_bird_gap,
                 fill_bird_gaps=not args.no_fill,
