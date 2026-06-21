@@ -59,21 +59,6 @@ def type_yolo_data(data: dict[str, str]) -> YOLOData:
     }
 
 
-class ResultDict(TypedDict):
-    """A :code:`TypedDict` describing an output result of a classification."""
-
-    #: source video id
-    video_id: str
-    #: if event refers to ringed or unringed bird
-    subject: str
-    #: the frame where the event starts
-    start_frame: int
-    #: the frame where the event ends
-    end_frame: int
-    #: if the bird had mud (currently always :code:`False`)
-    mud: bool
-
-
 class HasFrame(Protocol):
     """Protocol describing a class with a :code:`frame` attribute of type :code:`int`."""
 

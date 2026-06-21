@@ -30,7 +30,7 @@ def classify_with_boris(target: str, yolo: pd.DataFrame, boris: pd.DataFrame) ->
         - id: segment row id (used for grouping)
         - start_frame: first frame in segment
         - end_frame: last frame in segment
-        - subject: BORIS subject label
+        - ``target``: BORIS ``target`` value
 
     Input columns expected in ``yolo``:
         - video_id
@@ -40,10 +40,12 @@ def classify_with_boris(target: str, yolo: pd.DataFrame, boris: pd.DataFrame) ->
 
     Input columns expected in ``boris``:
         - video_id
-        - subject
+        - ``target``
         - start_frame
         - end_frame
 
+    :param target: name of target metric (e.g. ``subject``, ``mud``)
+    :type target: str
     :param yolo: segment data from :py:meth:`.SegmentCollection.as_df`
     :type yolo: pd.DataFrame
     :param boris: ground truth boris data
@@ -93,6 +95,8 @@ def _get_weights(
 
     :param model: Logistic regression model or pipeline.
     :type model: LogisticRegression | Pipeline
+    :param target: name of target metric
+    :type target: str
     :param data: Reference dataframe containing metric columns and ``subject`` labels.
     :type data: pd.DataFrame
     :param metrics: Metric column names to use.
@@ -125,6 +129,8 @@ def recommend_weights(
 ) -> tuple[np.float64, pd.Series[np.float64]]:
     """Apply a glm to output of :py:func:`classify_with_boris` to get recommended weights for selected metrics.
 
+    :param target: name of target metric (e.g. ``subject``, ``mud``)
+    :type target: str
     :param ref: reference data
     :type ref: pd.DataFrame
     :param metrics: metrics to get weights for, if ``None`` (the default) all metrics in :py:class:`.Metric` are used

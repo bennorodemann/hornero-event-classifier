@@ -233,20 +233,20 @@ class Item:
 
     :param type: What type of item this instance refers to.
     :type type: ItemType
-    :param id: The parent ID, generally inherited from YOLO (except for ``Item``\\s of type: :py:attr:`.ItemType.EVENT`).
+    :param id: The parent ID, generally inherited from YOLO (except for ``Item``\\s of type:
+        :py:attr:`.ItemType.EVENT`).
     :type id: int
     :param sub_id: A secondary ID which is incremented whenever an ``Item`` makes a child ``Item``. Default is ``0``.
     :type sub_id: int
-    :param subject: In the case of ``Item``\\s of type :py:attr:`.ItemType.BIRD` this is where classifications are stored.
-        Otherwise this attribute is ignored. Default is :py:attr:`.Subject.NOT_CLASSIFIED`.
-    :type subject: Subject
+    :param classifications: In the case of ``Item``\\s of type :py:attr:`.ItemType.BIRD` and :py:attr:`.ItemType.EVENT`
+        this is where classifications are stored. Otherwise this attribute is ignored.
+    :type classifications: dict[str, bool]
     :param ignore: An attribute that indicates if the ``Item`` should be ignored in future calculations.
     :type ignore: bool"""
 
     type: ItemType
     id: int
     sub_id: int = 0
-    # subject: Subject = field(default=Subject.NOT_CLASSIFIED, init=False)
     classifications: dict[str, bool] = field(default_factory=dict)
     ignore: bool = False
     parents: tuple[Self, ...] = field(default=())

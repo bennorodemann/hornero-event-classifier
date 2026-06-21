@@ -58,6 +58,8 @@ def recommend_weights(
     recommended weights for the provided metrics, and applies the resulting
     linear model to classify subjects.
 
+    :param target: name of classification metric
+    :type target: str
     :param metrics: List of metrics to include in the weight calculation.
                     If None, all available metrics may be used.
     :type metrics: list[Metric] | None
@@ -73,9 +75,9 @@ def recommend_weights(
     # Merge YOLO predictions with BORIS annotations
     classified = tools.classify_with_boris(target, yolo=yolo, boris=boris)
 
-    # Compute recommended weights and intercept
     if target == "subject":
         classified[target] = classified[target] == "ring"
+    # Compute recommended weights and intercept
     intercept, weights = tools.recommend_weights(target, classified, metrics)
 
     # Rename ground-truth column for clarity
@@ -126,6 +128,7 @@ if __name__ == "__main__":
 
     segment_dfs: list[pd.DataFrame] = []
 
+    # if cache already exists, read the first line and mark refresh if first line does not match target
     if config.segments_cache_path.exists():
         with open(config.segments_cache_path, "r", encoding="utf-8") as file:
             if file.readline() != (args.target + "\n"):
@@ -157,11 +160,13 @@ if __name__ == "__main__":
         # Cache segment data if a path is provided
         if config.segments_cache_path is not None:
             with open(config.segments_cache_path, "w", encoding="utf-8") as file:
+                # write target of cache
                 file.write(args.target + "\n")
                 segment_data.to_csv(file)
     else:
         # Load cached segment data
         with open(config.segments_cache_path, "r", encoding="utf-8") as file:
+            # skip over target
             file.readline()
             segment_data = pd.read_csv(file)
 

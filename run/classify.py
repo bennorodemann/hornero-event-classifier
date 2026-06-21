@@ -55,13 +55,13 @@ def _no_print(*_, **__) -> None:
 
 def load_default_classifiers() -> dict[str, Classifier]:
     """
-    Load the default pre-trained classifier from weights.json.
+    Load the default pre-trained classifiers from weights.json.
 
     This function reads the classifier configuration including weights for each metric
     and the classification threshold from the weights.json file in the same directory.
 
     Returns:
-        A configured ThresholdClassifier instance ready for classification.
+        A dict of configured ThresholdClassifier instances ready for classification.
     """
     # Get the directory containing this script
     dir_ = Path(__file__).parent
@@ -107,7 +107,8 @@ def classify(
 
     Args:
         metadata: VideoMetadata object containing video information.
-        classifier: Trained classifier to use for event detection.
+        ring_classifier: Trained classifier to use for event detection.
+        mud_classifier: Trained classifier to use for mud detection.
         show_progress: Whether to display progress messages (default: True).
         max_bird_gap: Maximum gap size to split bird detections (default: 100).
         fill_bird_gaps: Whether to fill gaps in bird detections (default: True).
@@ -159,14 +160,16 @@ def classify(
     # Classification stage
     print_func(f"\r\033[K{filename}: classifying...", end="")
 
-    # Run classification, define events, and remove short events
+    # load bird segments
     subject_segments = SegmentCollection(
         s.items.get(ItemType.BIRD), (ItemType.RING, ItemType.RING_METAL, ItemType.RING_PLASTIC), ring_classifier.metrics
     )
+    # Run classification, define events, and remove short events
     s.classify("subject", ring_classifier, subject_segments).define_events(
         "subject", combine_events_within
     ).remove_minor_items(min_event_len, ItemType.EVENT).fill_gaps(filters.make_gap_filter(2))
 
+    # if mud classifier is provided run mud classification on events
     if mud_classifier is not None:
         mud_segments = SegmentCollection(s.items.get(ItemType.EVENT), (ItemType.MUD,), mud_classifier.metrics)
         s.classify("mud", mud_classifier, mud_segments)

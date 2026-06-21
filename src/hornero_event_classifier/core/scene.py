@@ -37,7 +37,7 @@ from hornero_event_classifier.core.collections import (
 from hornero_event_classifier.core.data import BBox, Frame, Item
 from hornero_event_classifier.core.enums import ItemType, Subject
 from hornero_event_classifier.core.filters import BoxFilterFunc, ItemFilterFunc, FilterFunc
-from hornero_event_classifier.core.types import ResultDict, YOLOData, type_yolo_data
+from hornero_event_classifier.core.types import YOLOData, type_yolo_data
 
 if TYPE_CHECKING:
     from hornero_event_classifier.core.video_metadata import VideoMetadata
@@ -72,8 +72,8 @@ class Scene:
             .get_results()
         )
 
-    Scenes are typically built via :py:meth:`Scene.from_metadata` which reads YOLO CSV detections and constructs items and
-    frames.
+    Scenes are typically built via :py:meth:`Scene.from_metadata` which reads YOLO CSV detections and constructs items 
+    and frames.
     """
 
     video_data: VideoMetadata
@@ -337,28 +337,28 @@ class Scene:
     def classify(self, name: str, classifier: Classifier, segments: SegmentCollection) -> Self:
         """Apply a classifier to :py:attr:`~.ItemType.BIRD` :py:class:`.Item`\\s.
 
+        :param name: name of classification metric (e.g. ``subject``, ``mud``)
         :param classifier: A :py:class:`.Classifier` instance to apply to :py:class:`Item`\\s
         :type classifier: Classifier
-        :param segment_length: :py:class:`.SegmentCollection` ``segment_length`` argument, defaults to None
-        :type segment_length: Optional[int], optional
+        :param segments: segments to apply classifier to
+        :type segments: SegmentCollection
         :return: This :py:class:`Scene` instance.
         :rtype: Self
         :seealso: :py:class:`~hornero_event_classifier.classifiers.SegmentCollection`,
             :py:class:`~hornero_event_classifier.classifiers.Classifier`
         """
         # create segments from bird items
-        self.segments[name] = segments  # SegmentCollection(
-        # self.items.get(ItemType.BIRD), targets, classifier.metrics, segment_length=segment_length
-        # )
+        self.segments[name] = segments
         # train classifier if needed
         classifier.train(self.segments[name])
         # get classifications
         results = classifier.classify(self.segments[name])
         # for each item and segments pair
         for item, segs in results.items():
-            # set items subject to the first segments classification
+            # ensure classification was successful otherwise raise error
             if segs[0].classification is None:
                 raise ValueError("Segment was never classified")
+            # set items subject to the first segments classification
             item.classifications[name] = segs[0].classification
             # go through the rest of the segments in reverse order and cut at start of segment
             for segment in segs[:0:-1]:
@@ -411,14 +411,12 @@ class Scene:
             self.items.add(event)
         return self
 
-    def _get_result(self, item: Item) -> dict:  # ResultDict:
+    def _get_result(self, item: Item) -> dict:
         # convert Item to result csv dict entry
         return {
             "video_id": self.video_data.name,
-            # "subject": item.subject.value,
             "start_frame": item.start,
             "end_frame": item.end,
-            # "mud": False,
             **item.classifications,
         }
 
@@ -429,10 +427,9 @@ class Scene:
 
         Columns:
             - video_id: video name string
-            - subject: "ring" or "no_ring"
             - start_frame: first frame in event
             - end_frame: last frame in event
-            - mud: always ``False``
+            - all classified metrics (e.g. ``subject``, ``mud``)
 
         :return: Dataframe of found events.
         :rtype: pd.DataFrame
@@ -450,9 +447,9 @@ class Scene:
             - video_id: video name string
             - event_id: output event id
             - yolo_id: original yolo id
-            - subject: "ring" or "no_ring"
             - start_frame: start frame where yolo id is assigned to subject
             - end_frame: end frame where yolo id is assigned to subject
+            - all classified metrics (e.g. ``subject``, ``mud``)
 
         :return: Dataframe mapping yolo ids to event ids
         :rtype: pd.DataFrame
@@ -466,7 +463,6 @@ class Scene:
                         "video_id": self.video_data.name,
                         "event_id": event.id,
                         "yolo_id": float(parent.id),
-                        # "subject": event.subject.value,
                         "start_frame": parent.start,
                         "end_frame": parent.end,
                         **parent.classifications,
