@@ -56,8 +56,7 @@ def classify_with_boris(target: str, yolo: pd.DataFrame, boris: pd.DataFrame) ->
     """
     yolo = yolo.copy()
     # remove non hornero events
-    if target == "subject":
-        boris = boris[boris[target] != "otra_ave"]
+    boris = boris[boris["subject"] != "otra_ave"]
     # add a row id (for later grouping)
     yolo.insert(1, "id", range(len(yolo)))
     # inner join yolo and boris dataframes by video_id

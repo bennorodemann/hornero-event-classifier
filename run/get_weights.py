@@ -137,22 +137,25 @@ if __name__ == "__main__":
     # Generate or load segment data
     if args.refresh or config.segments_cache_path is None or not config.segments_cache_path.exists():
         for video_metadata in metadata_repo.values():
-            if args.target == "subject":
-                # Initialize classifier with weights of 1 for so unedited metric values can be collected later
-                subject_classifier = ThresholdClassifier(list(Metric), [1 for _ in Metric])
-                mud_classifier = None
+            if video_metadata.yolo_path.exists():
+                if args.target == "subject":
+                    # Initialize classifier with weights of 1 for so unedited metric values can be collected later
+                    subject_classifier = ThresholdClassifier(list(Metric), [1 for _ in Metric])
+                    mud_classifier = None
+                else:
+                    # load saved subject weights
+                    subject_classifier = load_default_classifiers()["subject"]
+                    # Initialize classifier with weights of 1 for so unedited metric values can be collected later
+                    mud_classifier = ThresholdClassifier(list(Metric), [1 for _ in Metric])
+
+                # Run classification pipeline
+                _, scene = classify(video_metadata, subject_classifier, mud_classifier, remove_low_conf=0)
+
+                # Collect segment data if available
+                if scene.segments[args.target] is not None:
+                    segment_dfs.append(scene.segments[args.target].as_df(video_metadata.name))
             else:
-                # load saved subject weights
-                subject_classifier = load_default_classifiers()["subject"]
-                # Initialize classifier with weights of 1 for so unedited metric values can be collected later
-                mud_classifier = ThresholdClassifier(list(Metric), [1 for _ in Metric])
-
-            # Run classification pipeline
-            _, scene = classify(video_metadata, subject_classifier, mud_classifier, remove_low_conf=0)
-
-            # Collect segment data if available
-            if scene.segments[args.target] is not None:
-                segment_dfs.append(scene.segments[args.target].as_df(video_metadata.name))
+                print(f"yolo file for {video_metadata.name} not found ({video_metadata.file_path})")
 
         # Concatenate all segment data into a single DataFrame
         segment_data: pd.DataFrame = pd.concat(segment_dfs)
@@ -191,4 +194,6 @@ if __name__ == "__main__":
     )
 
     # Print overall accuracy
-    print(f"accuracy: {(results['real_'+args.target] == results['calc_'+args.target]).mean()}")
+    print(
+        f"accuracy: {(results['real_'+args.target] == results['calc_'+args.target]).mean()} ({sum(results["real_" + args.target] != results["calc_" + args.target])}/{len(results)})"
+    )

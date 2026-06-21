@@ -98,13 +98,14 @@ class Renderer:
     """This class handles the reading of an input video, rendering :py:class:`.Scene` info, and optionally writing the rendered
     frames to an output video.
 
-    Renderings consist of :py:class:`~hornero_event_classifier.core.data.BBox` split up into 4 layers on top of the input video's
+    Renderings consist of :py:class:`~hornero_event_classifier.core.data.BBox` split up into 5 layers on top of the input video's
     frame that can be toggled off and on individually. They are (from bottom to top):
 
     1. :py:class:`.Item`\\s with the ignore flag in red (previous layers do not show ignored :py:class:`.Item`\\s).
     2. :py:attr:`~.ItemType.BIRD`\\s in green if the :py:class:`.BBox` is real or yellow if not real.
     3. :py:attr:`~.ItemType.RING_PLASTIC`\\s in blue and :py:attr:`~.ItemType.RING_METAL`\\s in gray.
-    4. :py:attr:`~.ItemType.EVENT`\\s in black.
+    4. :py:attr:`~.ItemType.MUD`\\s in brown.
+    5. :py:attr:`~.ItemType.EVENT`\\s in black.
 
     If layers 2 and 3 are both active, and :py:attr:`~.ItemType.BIRD` has :py:func:`.local_rings` loaded, then lines are also
     drawn to connect ``bird`` and ``ring`` bounding :py:class:`.BBox`\\s.
@@ -161,6 +162,7 @@ class Renderer:
         self._show_ignored: bool = True
         self._show_birds: bool = True
         self._show_rings: bool = True
+        self._show_mud: bool = True
         self._show_events: bool = True
 
         self.open: bool = True
@@ -208,6 +210,8 @@ class Renderer:
     #: Whether to render rings layer (layer 3). The current frame is automatically refreshed when this is set.
     show_rings = AutoRefresher[bool]()
     #: Whether to render events layer (layer 4). The current frame is automatically refreshed when this is set.
+    show_mud = AutoRefresher[bool]()
+    #: Whether to render events layer (layer 5). The current frame is automatically refreshed when this is set.
     show_events = AutoRefresher[bool]()
 
     @property
@@ -384,10 +388,13 @@ class Renderer:
             for ring in frame.rings:
                 color = (255, 0, 0) if ring.item_obj.type == ItemType.RING_PLASTIC else (150, 150, 150)
                 self.animate_bbox(ring, img, color)
+        if self.show_mud:
+            for mud in frame.mud:
+                self.animate_bbox(mud, img, (0, 150, 150))
         if self.show_events:
             # show all event bboxes in black
             for event in frame.events:
-                text = f"{event.item_obj.id}.{event.item_obj.sub_id}: {event.item_obj.subject.value}"
+                text = f"{event.item_obj.id}.{event.item_obj.sub_id}: {"ring" if event.item_obj.classifications["subject"] else "no_ring"}"
                 self.animate_bbox(event, img, (0, 0, 0), text_color=(255, 255, 255), text=text, text_anchor="ne")
 
     def animate_bbox(
@@ -511,7 +518,7 @@ class Animator:
     - ``J``: Enter frame jump mode (only when paused).
     - ``C``: Toggle clipped mode (restrict playback to start/end).
     - ``H``: Toggle all layers.
-    - ``1`` / ``2`` / ``3`` / ``4``: Toggle ignored/birds/rings/events layers.
+    - ``1`` / ``2`` / ``3`` / ``4`` / ``5``: Toggle ignored/birds/rings/events layers.
 
     Frame Jump Mode
     ---------------
@@ -592,6 +599,7 @@ class Animator:
             self.layers_str += "I" if self.renderer.show_ignored else "_"
             self.layers_str += "B" if self.renderer.show_birds else "_"
             self.layers_str += "R" if self.renderer.show_rings else "_"
+            self.layers_str += "M" if self.renderer.show_rings else "_"
             self.layers_str += "E" if self.renderer.show_events else "_"
 
     def set_frame(self, val: int) -> None:
@@ -727,6 +735,9 @@ class Animator:
                 self.renderer.show_rings = not self.renderer.show_rings
                 self._refresh_layers_str()
             case 52 | 150:  # 4 | numpad 4 (toggle hiding layer 4)
+                self.renderer.show_mud = not self.renderer.show_mud
+                self._refresh_layers_str()
+            case 53:  # 5 (toggle hiding layer 5) # TODO: find numpad 5 number
                 self.renderer.show_events = not self.renderer.show_events
                 self._refresh_layers_str()
             case other:  # everything else (print that the entered key was unrecognized)

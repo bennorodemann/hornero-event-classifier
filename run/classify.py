@@ -167,10 +167,11 @@ def classify(
     # Run classification, define events, and remove short events
     s.classify("subject", ring_classifier, subject_segments).define_events(
         "subject", combine_events_within
-    ).remove_minor_items(min_event_len, ItemType.EVENT).fill_gaps(filters.make_gap_filter(2))
+    ).remove_minor_items(min_event_len, ItemType.EVENT).fill_gaps(filters.make_gap_filter(2), ItemType.EVENT)
 
     # if mud classifier is provided run mud classification on events
     if mud_classifier is not None:
+        s.fill_gaps(filters.make_gap_filter(2), ItemType.MUD)
         mud_segments = SegmentCollection(s.items.get(ItemType.EVENT), (ItemType.MUD,), mud_classifier.metrics)
         s.classify("mud", mud_classifier, mud_segments)
 
@@ -261,6 +262,8 @@ if __name__ == "__main__":
             identity_map.to_csv(
                 config.identity_map_file, index=False, header=not config.identity_map_file.exists(), mode="a"
             )
+        else:
+            print(f"yolo file for {file_metadata.name} not found ({file_metadata.file_path})")
 
     if not args.no_progress:
         # Print total processing time
