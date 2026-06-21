@@ -26,7 +26,6 @@ from hornero_event_classifier.classifiers.metrics import (
 from hornero_event_classifier.core import BBox, Item, Subject, ItemType
 
 
-# TODO: update docs (particularly targets implementation)
 class ItemSegment:  # pylint: disable=too-many-instance-attributes
     """A sub-segment of :py:class:`~.core.data.Item` that holds a sub-section :py:class:`~.core.data.BBox`\\es and holds
     :py:class:`~.Metric` data arrays about the :py:class:`~core.data.BBox`\\es. This is the class type that

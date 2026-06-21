@@ -61,7 +61,7 @@ class EventBand(Rectangle):
     #: height of ``Rectangle`` in plot
     HEIGHT = 0.8 / 2
     #: ``Rectangle`` fill color lookup dict
-    FC: dict[str, str] = {
+    FC: dict[str | float, str] = {
         "ring": "#2c7bb6",
         "no_ring": "#5eaec9",
     }
@@ -74,26 +74,29 @@ class EventBand(Rectangle):
     def __init__(self, data: pd.Series, **kwargs) -> None:
         # save relevant info
         self.video_id = data["video_id"]
+        self.is_ring = data["subject"] == "ring"
+        self.is_yolo = data.get("source", "YOLO") == "YOLO"
+        self.has_mud = data.get("mud", None)
         self.start_frame = data["start_frame"]
         self.end_frame = data["end_frame"]
         self.length = self.end_frame - self.start_frame + 1
-        y = data["video_num"] + 0.5 + self._calc_rel_y_pos(data)
+        y = data["video_num"] + 0.5 + self._calc_rel_y_pos()
         # get default decor
         decor = self._get_decorations(data)
         # overwrite/add decor
         decor.update(kwargs)
         super().__init__((self.start_frame, y), self.length, self.HEIGHT, **decor)
 
-    def _calc_rel_y_pos(self, data: pd.Series) -> float:
+    def _calc_rel_y_pos(self) -> float:
         # calculate relative position based on data contents
-        return -self.HEIGHT * (data["subject"] != "ring")
+        return -self.HEIGHT * (not self.is_ring)
 
     def _get_decorations(self, data: pd.Series) -> dict[str, Any]:
         return {"fc": self.FC[data["subject"]], "ec": "k"}
 
 
-class ValidationEventBand(EventBand):
-    """A ``EventBand`` subclass with aesthetics specific for event validation plots.
+class SubjectValidationEventBand(EventBand):
+    """A ``EventBand`` subclass with aesthetics specific for subject event validation plots.
 
     This class works with the data from :py:func:`.validate_events.validate_events`.
 
@@ -123,20 +126,42 @@ class ValidationEventBand(EventBand):
         Patch(fc="0.4", ec=EC["no_ring"], label="not ringed"),
     ]
 
-    def _calc_rel_y_pos(self, data: pd.Series) -> float:
+    def _calc_rel_y_pos(self) -> float:
         # calculate relative position based on data contents
-        is_yolo = data["source"] == "YOLO"
-        is_ring = data["subject"] == "ring"
-        if is_yolo and is_ring:
+        if self.is_yolo and self.is_ring:
             return self.HEIGHT
-        if is_yolo and not is_ring:
+        if self.is_yolo and not self.is_ring:
             return -2 * self.HEIGHT
-        if not is_yolo and not is_ring:
+        if not self.is_yolo and not self.is_ring:
             return -self.HEIGHT
         return 0
 
     def _get_decorations(self, data: pd.Series) -> dict[str, Any]:
-        return {"fc": self.FC[data["result"]], "ec": self.EC[data["subject"]]}
+        return {"fc": self.FC[data["subject_result"]], "ec": self.EC[data["subject"]]}
+
+
+class MudValidationEventBand(EventBand):
+    """A ``EventBand`` subclass with aesthetics specific for mud validation plots.
+
+    This class works with the data from :py:func:`.validate_events.validate_events`.
+
+    :param data: a row from a ``pandas.DataFrame`` containing validated event data
+    :type data: pd.Series
+    :param kwargs: ``matplotlib.patches.Rectangle`` aesthetic passthrough arguments
+    :type kwargs: Any
+    """
+
+    FC = {"FP": "#d7191c", "FN": "#fdae61", "TN": "#5eaec9", "TP": "#2c7bb6", np.nan: "black"}
+    LEGEND_DATA = [
+        Patch(fc=FC["TP"], label="TP"),
+        Patch(fc=FC["TN"], label="TN"),
+        Patch(fc=FC["FN"], label="FN"),
+        Patch(fc=FC["FP"], label="FP"),
+        Patch(fc=FC[np.nan], label="Even not in BORIS"),
+    ]
+
+    def _get_decorations(self, data: pd.Series[Any]) -> dict[str, Any]:
+        return {"fc": self.FC[data["mud_result"]], "ec": "black"}
 
 
 class EventInteractor:
@@ -339,7 +364,14 @@ def event_plot(
     )
 
 
+_validation_band_registry: dict[str, Type[EventBand]] = {
+    "subject": SubjectValidationEventBand,
+    "mud": MudValidationEventBand,
+}
+
+
 def event_validation_plot(
+    target: str,
     metadata_repo: dict[str, VideoMetadata],
     df: pd.DataFrame,
     ctrl_click_callback: Optional[CtrlClickCallback] = None,
@@ -354,6 +386,7 @@ def event_validation_plot(
         - end_frame
         - result
 
+    :param target: name of the target metric (e.g. ``subject``, ``mud``)
     :param metadata_repo: A dict of video metadata within ``df``
     :type metadata_repo: dict[str, VideoMetadata]
     :param df: A ``pandas.DataFrame`` describing event data. Can be taken from :py:func:`.validate_events.validate_events`
@@ -367,5 +400,8 @@ def event_validation_plot(
     :seealso: :py:func:`~.validate_events.validate_events`, :py:class:`VideoBand`
     """
     return _make_event_plot(
-        band_type=ValidationEventBand, metadata_repo=metadata_repo, df=df, ctrl_click_callback=ctrl_click_callback
+        band_type=_validation_band_registry[target],
+        metadata_repo=metadata_repo,
+        df=df,
+        ctrl_click_callback=ctrl_click_callback,
     )

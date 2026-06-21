@@ -530,7 +530,12 @@ class Frame:
         return self.video_metadata.height
 
     def get_items(self, *items: ItemType) -> Generator[BBox]:
-        # TODO: doc string
+        """Get an combination of items from the ``Frame`` object.
+
+        :param items: One or more :py:class:`ItemType`\\s to include.
+        :type items: ItemType
+        :returns: a ``Generator`` of :py:class:`BBox`\\s of provided :py:class:`ItemType`\\s
+        :rtype: Generator[BBox]"""
         return self._bboxes.get(*items)
 
     @property

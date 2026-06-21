@@ -20,7 +20,6 @@ def _overlap_prep(df: pd.DataFrame) -> pd.DataFrame:
     # add row id
     df["id"] = range(len(df))
     df["length"] = df["end_frame"] - df["start_frame"] + 1
-    del df["mud"]
     return df
 
 
@@ -38,7 +37,9 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
         - subject: ``"ring"`` or ``"no_ring"``
         - start_frame: the starting frame of the event
         - end_frame: the ending frame of the event
-        - result: if the event was correctly identified (``TP``/``PAIRED``) or not (``FP``/``FN``)
+        - subject_result: if the event was correctly identified (``TP``/``PAIRED``) or not (``FP``/``FN``)
+        - mud_result: if the event correctly identified if bird arrived with mud (if ring_result is ``FP``/``FN`` then
+            this metric is ``None``)
 
     Input columns expected in both ``yolo_data`` and ``boris_data``:
         - video_id
@@ -76,14 +77,24 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
     matched = df.query(f"subject_yolo == subject_boris and min_overlap >= {overlap}")
 
     # sub dataframe of yolo true positives
-    shared_yolo = matched[["video_id", "subject_yolo", "start_frame_yolo", "end_frame_yolo"]].rename(columns=_suffix_cleaner)
+    shared_yolo = matched[["video_id", "subject_yolo", "start_frame_yolo", "end_frame_yolo"]].rename(
+        columns=_suffix_cleaner
+    )
     shared_yolo.insert(1, "source", "YOLO")
-    shared_yolo["result"] = "TP"
+    shared_yolo["subject_result"] = "TP"
+    shared_yolo["mud_result"] = (matched["mud_yolo"] == matched["mud_boris"]).map({True: "T", False: "F"}) + matched[
+        "mud_yolo"
+    ].map({True: "P", False: "N"})
 
     # sub dataframe of boris events that were correctly identified
-    shared_boris = matched[["video_id", "subject_boris", "start_frame_boris", "end_frame_boris"]].rename(columns=_suffix_cleaner)
+    shared_boris = matched[["video_id", "subject_boris", "start_frame_boris", "end_frame_boris"]].rename(
+        columns=_suffix_cleaner
+    )
     shared_boris.insert(1, "source", "BORIS")
-    shared_boris["result"] = "PAIRED"
+    shared_boris["subject_result"] = "PAIRED"
+    shared_boris["mud_result"] = (matched["mud_yolo"] == matched["mud_boris"]).map({True: "T", False: "F"}) + matched[
+        "mud_yolo"
+    ].map({True: "P", False: "N"})
 
     # sub dataframe of yolo events that were not correctly identified (false positives)
     missing_yolo = df[np.isin(df["id_yolo"], np.unique(matched["id_yolo"]), invert=True)]
@@ -92,7 +103,7 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
     )
     missing_yolo = missing_yolo.drop_duplicates()
     missing_yolo.insert(1, "source", "YOLO")
-    missing_yolo["result"] = "FP"
+    missing_yolo["subject_result"] = "FP"
 
     # sub dataframe of boris events that were not correctly identified (false negatives)
     missing_boris = df[np.isin(df["id_boris"], np.unique(matched["id_boris"]), invert=True)]
@@ -101,7 +112,7 @@ def validate_events(yolo_data: pd.DataFrame, boris_data: pd.DataFrame, overlap: 
     )
     missing_boris = missing_boris.drop_duplicates()
     missing_boris.insert(1, "source", "BORIS")
-    missing_boris["result"] = "FN"
+    missing_boris["subject_result"] = "FN"
 
     # combine sub dataframes and return
     return pd.concat([shared_yolo, shared_boris, missing_yolo, missing_boris])

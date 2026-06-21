@@ -55,11 +55,12 @@ def _get_validation_text(title: str, tp: float, fp: float, fn: float, tn: float)
     return f"{title}:\n\tTP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}\n\tAccuracy: {accuracy}\n\tPrecision: {precision}\n\tRecall: {recall}\n\tF1: {f1}"
 
 
-def event_validation_str(data: pd.DataFrame, long: bool = False) -> str:
+def event_validation_str(target: str, data: pd.DataFrame, long: bool = False) -> str:
     """
     Generate validation summary string from results dataframe.
 
     Args:
+        target: name of target metric (e.g. 'subject', 'mud')
         data: DataFrame with validation results.
         long: If True, include per-video statistics.
 
@@ -67,7 +68,6 @@ def event_validation_str(data: pd.DataFrame, long: bool = False) -> str:
         Formatted validation text.
     """
     # True negatives are not tracked per video, set to 0
-    tn = 0
     text = ""
 
     if long:
@@ -77,21 +77,25 @@ def event_validation_str(data: pd.DataFrame, long: bool = False) -> str:
 
         for video_name, accuracy_data in video_accuracy.iterrows():
             text += (
-                _get_validation_text(str(video_name), accuracy_data["TP"], accuracy_data["FP"], accuracy_data["FN"], tn)
+                _get_validation_text(
+                    str(video_name), accuracy_data["TP"], accuracy_data["FP"], accuracy_data["FN"], accuracy_data["TN"]
+                )
                 + "\n\n"
             )
 
     # Calculate overall statistics
-    tp = sum(data["result"] == "TP")
-    fp = sum(data["result"] == "FP")
-    fn = sum(data["result"] == "FN")
+    tp = sum(data[target + "_result"] == "TP")
+    tn = sum(data[target + "_result"] == "TN")
+    fp = sum(data[target + "_result"] == "FP")
+    fn = sum(data[target + "_result"] == "FN")
 
     # Add summary statistics
-    text += _get_validation_text("Summary", tp, fp, fn, tn)
+    text += _get_validation_text(target.title() + " Validation Summary", tp, fp, fn, tn)
     return text
 
 
 def validate(
+    target: str,
     yolo_data: pd.DataFrame,
     boris_data: pd.DataFrame,
     metadata_repo: dict[str, VideoMetadata],
@@ -107,6 +111,7 @@ def validate(
     performance metrics and optionally display interactive validation plots.
 
     Args:
+        target: name of target metric (e.g. 'subject', 'mud')
         yolo_data: DataFrame with YOLO classification results.
         boris_data: DataFrame with ground truth BORIS annotations.
         metadata_repo: Dictionary mapping video IDs to metadata.
@@ -123,18 +128,19 @@ def validate(
 
     # Print results if requested
     if print_results:
-        print(event_validation_str(results, long_print))
+        print(event_validation_str(target, results, long_print))
 
     # Display interactive plot if requested
     if plot:
-        fig, _, _ = event_validation_plot(metadata_repo, results, ctrl_click_callback=event_plot_open_vid)
-        fig.suptitle("Event Validation")
+        fig, _, _ = event_validation_plot(target, metadata_repo, results, ctrl_click_callback=event_plot_open_vid)
+        fig.suptitle(f"Event Validation({target.title()})")
         plt.show()
 
     return results
 
 
 parser = ArgumentParser()
+parser.add_argument("target", choices=["subject", "mud"], type=str)
 parser.add_argument(
     "--overlap", default=0.8, type=float, help="Required overlap between boris and yolo event, default is 0.8"
 )
@@ -181,6 +187,7 @@ if __name__ == "__main__":
 
     # Run validation
     validate(
+        args.target,
         yolo,
         boris,
         metadata,
