@@ -140,7 +140,7 @@ def validate(
 
 
 parser = ArgumentParser()
-parser.add_argument("target", choices=["subject", "mud"], type=str)
+parser.add_argument("target", choices=["subject", "mud"], type=str, help="Choose which metric to validate")
 parser.add_argument(
     "--overlap", default=0.8, type=float, help="Required overlap between boris and yolo event, default is 0.8"
 )

@@ -415,6 +415,7 @@ class Scene:
         # convert Item to result csv dict entry
         return {
             "video_id": self.video_data.name,
+            "event_id": f"{item.id}.{item.sub_id}",
             "start_frame": item.start,
             "end_frame": item.end,
             **item.classifications,
@@ -427,6 +428,7 @@ class Scene:
 
         Columns:
             - video_id: video name string
+            - event_id: internal event ID
             - start_frame: first frame in event
             - end_frame: last frame in event
             - all classified metrics (e.g. ``subject``, ``mud``)
@@ -461,7 +463,7 @@ class Scene:
                 [
                     {
                         "video_id": self.video_data.name,
-                        "event_id": event.id,
+                        "event_id": f"{event.id}.{event.sub_id}",
                         "yolo_id": float(parent.id),
                         "start_frame": parent.start,
                         "end_frame": parent.end,

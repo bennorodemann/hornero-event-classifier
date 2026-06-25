@@ -99,7 +99,7 @@ def recommend_weights(
 
 # Argument parser configuration
 parser = ArgumentParser()
-parser.add_argument("target", choices=["subject", "mud"], type=str)
+parser.add_argument("target", choices=["subject", "mud"], type=str, help="Choose which metric to get weights for.")
 parser.add_argument(
     "metrics",
     choices=list(Metric),
