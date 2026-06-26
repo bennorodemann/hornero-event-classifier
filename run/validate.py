@@ -72,7 +72,9 @@ def event_validation_str(target: str, data: pd.DataFrame, long: bool = False) ->
 
     if long:
         # Generate per-video statistics
-        video_accuracy = data.groupby("video_id")[["result"]].value_counts().unstack()
+        video_accuracy = (
+            data[data["source"] == "YOLO"].groupby("video_id")[[target + "_result"]].value_counts().unstack()
+        )
         video_accuracy = video_accuracy.replace(np.nan, 0)
 
         for video_name, accuracy_data in video_accuracy.iterrows():
@@ -83,6 +85,8 @@ def event_validation_str(target: str, data: pd.DataFrame, long: bool = False) ->
                 + "\n\n"
             )
 
+    if target == "mud":
+        data = data[data["source"] == "YOLO"]
     # Calculate overall statistics
     tp = sum(data[target + "_result"] == "TP")
     tn = sum(data[target + "_result"] == "TN")
