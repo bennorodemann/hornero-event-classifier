@@ -33,6 +33,7 @@ from argparse import ArgumentParser
 import numpy as np
 import pandas as pd
 from config import config
+from typing import TypedDict
 
 from hornero_event_classifier import (
     Classifier,
@@ -53,6 +54,24 @@ def _no_print(*_, **__) -> None:
     pass
 
 
+class ClassifierWeights(TypedDict):
+    weights: dict[str, float]
+    threshold: float
+
+
+weights_path: Path = Path(__file__).parent / "weights.json"
+
+
+def read_weights() -> dict[str, ClassifierWeights]:
+    with open(weights_path, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+def write_weights(data: dict[str, ClassifierWeights]) -> None:
+    with open(weights_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4)
+
+
 def load_default_classifiers() -> dict[str, Classifier]:
     """
     Load the default pre-trained classifiers from weights.json.
@@ -63,12 +82,8 @@ def load_default_classifiers() -> dict[str, Classifier]:
     Returns:
         A dict of configured ThresholdClassifier instances ready for classification.
     """
-    # Get the directory containing this script
-    dir_ = Path(__file__).parent
-
     # Load weights configuration from JSON file
-    with open(dir_ / "weights.json", "r", encoding="utf-8") as file:
-        data = json.load(file)
+    data = read_weights()
 
     # Convert metric names to enum values and create classifier
     out: dict[str, Classifier] = {}

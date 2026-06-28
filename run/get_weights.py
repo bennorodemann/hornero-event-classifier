@@ -21,7 +21,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import pandas as pd
-from classify import classify, load_default_classifiers
+from classify import classify, load_default_classifiers, read_weights, write_weights
 from config import config
 import json
 from hornero_event_classifier import (
@@ -75,8 +75,6 @@ def recommend_weights(
     # Merge YOLO predictions with BORIS annotations
     classified = tools.classify_with_boris(target, yolo=yolo, boris=boris)
 
-    if target == "subject":
-        classified[target] = classified[target] == "ring"
     # Compute recommended weights and intercept
     intercept, weights = tools.recommend_weights(target, classified, metrics)
 
@@ -86,7 +84,7 @@ def recommend_weights(
     # Compute predicted subject using linear combination of metrics
     classified["calc_" + target] = np.sum(classified.loc[:, weights.index] * weights, axis=1) >= intercept
     if target == "subject":
-        classified["calc_" + target] = classified["calc_" + target].map(_bool_to_subject)
+        classified["calc_" + target] = classified["calc_" + target]
 
     # Compute offset from decision boundary
     classified["offset"] = (classified.loc[:, weights.index] * weights).sum(axis=1) - intercept
@@ -111,6 +109,11 @@ parser.add_argument(
     "--refresh",
     action="store_true",
     help="Recalculate segment metrics instead of using cached data.",
+)
+parser.add_argument(
+    "--auto-apply",
+    action="store_true",
+    help="Automatically write new weights to to 'run/weights.json'",
 )
 
 
@@ -175,6 +178,8 @@ if __name__ == "__main__":
 
     # Load BORIS annotations
     boris = pd.read_csv(config.boris_file)
+    boris = boris[boris["subject"] != "otra_ave"]
+    boris["subject"] = boris["subject"] == "ring"
 
     # Compute weights and classification results
     (threshold, weights), results = recommend_weights(args.target, args.metrics, segment_data, boris)
@@ -197,3 +202,8 @@ if __name__ == "__main__":
     print(
         f"accuracy: {(results['real_'+args.target] == results['calc_'+args.target]).mean()} ({sum(results["real_" + args.target] != results["calc_" + args.target])}/{len(results)})"
     )
+
+    if args.auto_apply:
+        weights = read_weights()
+        weights[args.target] = {"weights": simple_weights, "threshold": threshold}
+        write_weights(weights)

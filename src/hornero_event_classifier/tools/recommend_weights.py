@@ -55,8 +55,6 @@ def classify_with_boris(target: str, yolo: pd.DataFrame, boris: pd.DataFrame) ->
     :seealso: :py:func:`recommend_weights`
     """
     yolo = yolo.copy()
-    # remove non hornero events
-    boris = boris[boris["subject"] != "otra_ave"]
     # add a row id (for later grouping)
     yolo.insert(1, "id", range(len(yolo)))
     # inner join yolo and boris dataframes by video_id
@@ -115,7 +113,7 @@ def _get_weights(
     # get coefficients
     weights: pd.Series[np.float64] = pd.Series(model.coef_[0], index=X.columns)  # type: ignore
     # get weight scaler
-    weights_sum: np.float64 = weights.sum()
+    weights_sum: np.float64 = abs(weights.sum())
     # rescale weights
     weights = weights / weights_sum
     # get intercept and rescale
